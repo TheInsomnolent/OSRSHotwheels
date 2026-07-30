@@ -3,7 +3,7 @@ import type { SkillId } from '../engine/types'
 import { SKILLS } from '../data/skills'
 import { itemName } from '../data/items'
 import { clampLevel } from '../engine/xp'
-import { el, formatQty, itemIcon } from './format'
+import { el, formatQty, itemIcon, skillIcon } from './format'
 
 type SideTab = 'skills' | 'inventory'
 let activeTab: SideTab = 'skills'
@@ -44,7 +44,7 @@ function renderSkills(body: HTMLElement, ctx: GameCtx): void {
     cell.type = 'button'
     cell.title = `${skill.name} — ${skill.use}`
     cell.append(
-      el('span', 'skill-icon', skill.icon),
+      skillIcon(skill.id),
       el('span', 'skill-name', skill.name),
       el('span', 'skill-level', `${level}/99`),
     )
