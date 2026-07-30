@@ -4,6 +4,7 @@ import { loadState, saveState } from './engine/state'
 import { processIdle, type IdleReport } from './engine/idle'
 import { itemName } from './data/items'
 import { createApp } from './ui/app'
+import { runIntro } from './ui/intro'
 import type { GameCtx } from './ui/context'
 import { formatDuration } from './ui/format'
 
@@ -39,25 +40,40 @@ const startedAt = Date.now()
 const awayMs = startedAt - state.lastProcessed
 const offlineReport = processIdle(state, startedAt)
 
-ctx.log('Welcome to OSRS Hot Wheels!', 'system')
-if (state.rsn) ctx.log(`Good to see you again, ${state.rsn}.`, 'system')
-else {
-  ctx.log('Enter your RSN up top to load your real OSRS stats, or click skills to set them by hand.', 'system')
-}
-if (offlineReport.actions > 0 && offlineReport.activity) {
-  ctx.log(
-    `While you were away (${formatDuration(awayMs)}), ${offlineReport.activity.name.toLowerCase()} ` +
-      `earned you: ${describeGains(offlineReport)}.`,
-    'reward',
-  )
-}
-if (offlineReport.starved && offlineReport.activity) {
-  ctx.log(`You ran out of materials for ${offlineReport.activity.name.toLowerCase()} and stopped.`, 'game')
+const root = document.querySelector<HTMLDivElement>('#app')!
+
+function logWelcome(): void {
+  ctx.log('Welcome to OSRS Hot Wheels!', 'system')
+  if (state.rsn) ctx.log(`Good to see you again, ${state.rsn}.`, 'system')
+  else {
+    ctx.log('Enter your RSN up top to load your real OSRS stats, or click skills to set them by hand.', 'system')
+  }
+  if (offlineReport.actions > 0 && offlineReport.activity) {
+    ctx.log(
+      `While you were away (${formatDuration(awayMs)}), ${offlineReport.activity.name.toLowerCase()} ` +
+        `earned you: ${describeGains(offlineReport)}.`,
+      'reward',
+    )
+  }
+  if (offlineReport.starved && offlineReport.activity) {
+    ctx.log(`You ran out of materials for ${offlineReport.activity.name.toLowerCase()} and stopped.`, 'game')
+  }
 }
 
-app = createApp(document.querySelector<HTMLDivElement>('#app')!, ctx)
-app.chat.render(messages)
-saveState(localStorage, state)
+async function boot(): Promise<void> {
+  // First visit: title screen (RSN entry) then the opening miniquest cinematic.
+  if (!state.introSeen) {
+    root.classList.add('intro-mode')
+    await runIntro(root, ctx)
+    root.classList.remove('intro-mode')
+  }
+  logWelcome()
+  app = createApp(root, ctx)
+  app.chat.render(messages)
+  saveState(localStorage, state)
+}
+
+void boot()
 
 // ── Game loop ────────────────────────────────────────────────────
 let lastLoggedAction = 0

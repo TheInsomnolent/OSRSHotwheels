@@ -40,7 +40,8 @@ export function defaultState(now: number = Date.now()): GameState {
     upgrades: Object.fromEntries(ALL_SLOTS.map((s) => [s, 0])) as Record<UpgradeSlot, number>,
     selectedPotion: null,
     raceWins: {},
-    dogName: 'Buster',
+    dogName: 'Scruffius',
+    introSeen: false,
     pendingBet: null,
   }
 }
@@ -59,6 +60,7 @@ export function reviveState(raw: unknown, now: number = Date.now()): GameState {
     state.currentActivity = LEGACY_ACTIVITIES[data.currentActivity] ?? data.currentActivity
   }
   if (typeof data.selectedPotion === 'string') state.selectedPotion = data.selectedPotion
+  if (data.introSeen === true) state.introSeen = true
   if (typeof data.lastProcessed === 'number' && Number.isFinite(data.lastProcessed)) {
     state.lastProcessed = Math.min(data.lastProcessed, now)
   }
