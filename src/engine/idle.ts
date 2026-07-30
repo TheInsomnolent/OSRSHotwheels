@@ -89,8 +89,10 @@ export function processIdle(state: GameState, now: number): IdleReport {
   }
 
   if (supported < possible) {
-    // Ran out of inputs part-way; the idle worker twiddles their thumbs until now.
+    // Ran out of inputs part-way; stop the activity like OSRS would ("You have
+    // run out of ores."). Unused time is not banked.
     report.starved = true
+    state.currentActivity = null
     state.lastProcessed = now
   } else {
     state.lastProcessed += actions * perAction

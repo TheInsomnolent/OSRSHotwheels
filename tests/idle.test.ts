@@ -68,7 +68,8 @@ describe('idle engine', () => {
     expect(report.starved).toBe(true)
     expect(state.inventory.bronze_bar).toBe(3)
     expect(state.inventory.copper_ore).toBeUndefined()
-    // Starved time doesn't bank: the clock catches up to now.
+    // Starving stops the task and doesn't bank unused time.
+    expect(state.currentActivity).toBeNull()
     expect(state.lastProcessed).toBe(T0 + 60_000)
   })
 
