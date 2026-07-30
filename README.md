@@ -24,13 +24,15 @@ Play it here: **<https://theinsomnolent.github.io/OSRSHotwheels/>**
   - ⛵ **Sailing** → aerodynamic fairings
   - ✨ **Magic** → enchantments
   - 🧪 **Herblore** → single-use "performance enhancing" potions
-- **Race!** – take your dog to the **Civitas illa Fortis market dash** and race
-  three other very good dogs around the fountain in a cute low-poly 3D scene
-  rendered with three.js. Win races to earn bonus resources.
+- **Race!** – take your dog to the **Civitas illa Fortis market dash** and
+  five other events across Gielinor, racing dogs, wolves, bears, terrorbirds,
+  unicorns and — in the finale — the Penance Queen herself, in cute low-poly
+  3D scenes rendered with three.js. Win races to earn bonus resources, and
+  place bets with the trackside bookie.
 
-More races (bigger, faster, more exotic creatures — and cups to bind them
-together) are planned. This bootstrap ships the engine, the idle gathering
-game mode, the workshop, and the first dog race.
+More races and championship cups to bind them together are still planned.
+This bootstrap ships the engine, the idle gathering game mode, the workshop,
+and a suite of seven dog races of increasing difficulty.
 
 ## Development
 
