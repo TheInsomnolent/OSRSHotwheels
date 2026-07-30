@@ -175,7 +175,7 @@ function buildStartArch(curve: THREE.CatmullRomCurve3): THREE.Group {
   const banner = new THREE.Mesh(bannerGeo, lambert(0xb03a2e))
   banner.position.copy(start)
   banner.position.y = 4.0
-  banner.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(side.x, side.z))
+  banner.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(tangent.x, tangent.z))
   banner.castShadow = true
   arch.add(banner)
 
