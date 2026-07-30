@@ -273,7 +273,8 @@ body {
 }
 
 .activity-card.locked,
-.tier-card.locked {
+.tier-card.locked,
+.race-card.locked {
   opacity: 0.62;
   background: rgb(190 178 152 / 45%);
 }
