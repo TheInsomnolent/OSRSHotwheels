@@ -71,6 +71,23 @@ describe('game state persistence', () => {
     expect(revived.raceWins.market_dash).toBe(2)
   })
 
+  it('migrates legacy item and activity ids from old saves', () => {
+    const revived = reviveState(
+      {
+        inventory: { sailcloth: 7, linen: 2, logs: 3 },
+        currentActivity: 'salvage_sailcloth',
+      },
+      T0,
+    )
+    expect(revived.inventory.sailcloth).toBeUndefined()
+    expect(revived.inventory.linen).toBe(9)
+    expect(revived.inventory.logs).toBe(3)
+    expect(revived.currentActivity).toBe('weave_linen')
+
+    const essence = reviveState({ currentActivity: 'siphon_essence' }, T0)
+    expect(essence.currentActivity).toBe('imbue_rune_essence')
+  })
+
   it('manages inventory stacks', () => {
     const state = defaultState(T0)
     addItem(state, 'logs', 3)

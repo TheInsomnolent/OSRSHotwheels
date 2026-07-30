@@ -18,6 +18,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@dava96/osrs-icons": "^1.0.28",
     "three": "^0.185.1"
   }
 }

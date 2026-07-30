@@ -8,6 +8,12 @@ const LEGACY_ITEMS: Record<string, string> = {
   sailcloth: 'linen',
 }
 
+/** Activities renamed by content updates; old saves are migrated on load. */
+const LEGACY_ACTIVITIES: Record<string, string> = {
+  salvage_sailcloth: 'weave_linen',
+  siphon_essence: 'imbue_rune_essence',
+}
+
 export const ALL_SKILLS: SkillId[] = [
   'woodcutting',
   'mining',
@@ -49,7 +55,9 @@ export function reviveState(raw: unknown, now: number = Date.now()): GameState {
   if (typeof data.dogName === 'string' && data.dogName.length > 0) {
     state.dogName = data.dogName.slice(0, 20)
   }
-  if (typeof data.currentActivity === 'string') state.currentActivity = data.currentActivity
+  if (typeof data.currentActivity === 'string') {
+    state.currentActivity = LEGACY_ACTIVITIES[data.currentActivity] ?? data.currentActivity
+  }
   if (typeof data.selectedPotion === 'string') state.selectedPotion = data.selectedPotion
   if (typeof data.lastProcessed === 'number' && Number.isFinite(data.lastProcessed)) {
     state.lastProcessed = Math.min(data.lastProcessed, now)

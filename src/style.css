@@ -805,6 +805,45 @@ body {
   font-size: 20px;
 }
 
+/* Authentic OSRS item sprites (with emoji fallback) */
+.item-icon {
+  width: 26px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+span.item-icon-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+
+.item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 6px;
+}
+
+.item-chip .item-icon {
+  width: 20px;
+  height: 18px;
+}
+
+span.item-chip .item-icon-emoji {
+  font-size: 13px;
+}
+
+.panel-footnote {
+  font-size: 11px;
+  color: #8a7a58;
+  font-style: italic;
+  margin: 4px 0 8px;
+}
+
 .inv-qty {
   position: absolute;
   top: 0;

@@ -1,9 +1,9 @@
 import type { GameCtx } from './context'
 import type { SkillId } from '../engine/types'
 import { SKILLS } from '../data/skills'
-import { ITEMS_BY_ID, itemName } from '../data/items'
+import { itemName } from '../data/items'
 import { clampLevel } from '../engine/xp'
-import { el, formatQty } from './format'
+import { el, formatQty, itemIcon } from './format'
 
 type SideTab = 'skills' | 'inventory'
 let activeTab: SideTab = 'skills'
@@ -77,10 +77,9 @@ function renderInventory(body: HTMLElement, ctx: GameCtx): void {
 
   for (const [item, qty] of entries) {
     const slot = el('div', 'inv-slot')
-    const info = ITEMS_BY_ID[item]
     slot.title = `${itemName(item)} × ${qty.toLocaleString()}`
     const { text, cls } = formatQty(qty)
-    slot.append(el('span', 'inv-icon', info?.icon ?? '❔'), el('span', `inv-qty ${cls}`, text))
+    slot.append(itemIcon(item), el('span', `inv-qty ${cls}`, text))
     grid.append(slot)
   }
   const minSlots = 28

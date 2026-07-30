@@ -38,10 +38,14 @@ export const ITEMS: ItemInfo[] = [
   { id: 'leather', name: 'Leather', icon: '🟫' },
   { id: 'vial_of_water', name: 'Vial of water', icon: '🧴' },
   // Sailing
-  { id: 'sailcloth', name: 'Sailcloth', icon: '⛵' },
+  { id: 'linen', name: 'Linen', icon: '🧻' },
+  { id: 'canvas', name: 'Canvas', icon: '⛵' },
+  { id: 'cotton', name: 'Cotton', icon: '☁️' },
   { id: 'rope', name: 'Rope', icon: '🪢' },
   // Magic
   { id: 'rune_essence', name: 'Rune essence', icon: '💠' },
+  { id: 'pure_essence', name: 'Pure essence', icon: '💠' },
+  { id: 'daeyalt_essence', name: 'Daeyalt essence', icon: '💠' },
   // Herblore potions (race consumables)
   {
     id: 'guam_vigour_potion',
