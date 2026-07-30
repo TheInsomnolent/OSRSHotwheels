@@ -10,6 +10,8 @@ export interface GameCtx {
   save(): void
   /** Re-render the active panel and sidebar. */
   refresh(): void
+  /** Wipe all saved progress and restart the game from the very beginning. */
+  reset(): void
   /** While true (e.g. during race playback) the periodic tick skips re-rendering. */
   uiLocked: boolean
   /**
