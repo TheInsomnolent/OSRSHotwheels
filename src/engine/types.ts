@@ -104,6 +104,13 @@ export interface ChatMessage {
   time: number
 }
 
+/**
+ * Where the player is in the guided tutorial that interrupts the opening
+ * cinematic: watch the opening, gather the tier-1 materials, build the basic
+ * wheelchair, take it for a test drive, then back to the cinematic's finale.
+ */
+export type TutorialStage = 'intro' | 'gather' | 'workshop' | 'test_drive' | 'done'
+
 /** A stake placed with the trackside bookie ahead of a race. */
 export interface PendingBet {
   raceId: string
@@ -138,6 +145,8 @@ export interface GameState {
   dogName: string
   /** True once the opening "Hotwheels" miniquest cinematic has been watched. */
   introSeen: boolean
+  /** Progress through the guided tutorial played inside the opening cinematic. */
+  tutorial: TutorialStage
   /** Outstanding bookie bet, settled when its race is run. */
   pendingBet: PendingBet | null
 }

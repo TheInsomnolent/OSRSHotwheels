@@ -206,6 +206,21 @@ body {
   color: var(--gold-bright);
 }
 
+.tutorial-hint {
+  display: none;
+}
+
+.tutorial-hint.active {
+  display: block;
+  padding: 8px 10px;
+  border: 2px solid var(--stone-dark);
+  border-radius: 3px;
+  background: linear-gradient(#5a4a2a, #40331d);
+  color: var(--gold-bright);
+  font-size: 12px;
+  text-shadow: 1px 1px 0 #000;
+}
+
 .main-panel {
   flex: 1;
   overflow-y: auto;

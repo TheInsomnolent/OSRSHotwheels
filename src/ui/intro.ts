@@ -1,4 +1,4 @@
-import { INTRO_SCRIPT } from '../data/introScript'
+import { INTRO_FINALE, INTRO_OPENING } from '../data/introScript'
 import { fetchHiscores, validRsn } from '../engine/hiscores'
 import type { GameCtx } from './context'
 import { playCutscene } from './cutscene'
@@ -7,8 +7,11 @@ import { applyHiscoreLevels, hiscoreErrorMessage } from './hiscoreSync'
 
 /**
  * The opening sequence: an OSRS-style title screen that takes the player's RSN,
- * then the "Hotwheels" miniquest cinematic. The hiscores lookup runs in the
+ * then the opening half of the "Hotwheels" miniquest cinematic, which breaks
+ * off at the smith for the guided tutorial. The hiscores lookup runs in the
  * background while the cutscene plays, so the game is ready when it ends.
+ *
+ * Skipping the cinematic skips the tutorial too.
  */
 export function runIntro(container: HTMLElement, ctx: GameCtx): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -91,11 +94,15 @@ export function runIntro(container: HTMLElement, ctx: GameCtx): Promise<void> {
 
       screen.remove()
       const player = rsn.length > 0 ? rsn : 'Adventurer'
-      const finished = skipCutscene
-        ? Promise.resolve()
-        : playCutscene(container, INTRO_SCRIPT, { player, dog: ctx.state.dogName })
-      void finished.then(() => {
+      if (skipCutscene) {
         ctx.state.introSeen = true
+        ctx.state.tutorial = 'done'
+        ctx.save()
+        resolve()
+        return
+      }
+      void playCutscene(container, INTRO_OPENING, { player, dog: ctx.state.dogName }).then(() => {
+        ctx.state.tutorial = 'gather'
         ctx.save()
         resolve()
       })
@@ -105,5 +112,20 @@ export function runIntro(container: HTMLElement, ctx: GameCtx): Promise<void> {
       event.preventDefault()
       begin(false)
     })
+  })
+}
+
+/**
+ * The closing half of the cinematic, played over the game once the tutorial's
+ * test drive is done. Resolves when the story is over and the intro is marked
+ * as seen.
+ */
+export function runIntroFinale(container: HTMLElement, ctx: GameCtx): Promise<void> {
+  if (ctx.state.introSeen) return Promise.resolve()
+  const player = ctx.state.rsn ?? 'Adventurer'
+  return playCutscene(container, INTRO_FINALE, { player, dog: ctx.state.dogName }).then(() => {
+    ctx.state.introSeen = true
+    ctx.state.tutorial = 'done'
+    ctx.save()
   })
 }

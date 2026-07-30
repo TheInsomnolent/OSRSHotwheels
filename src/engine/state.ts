@@ -1,4 +1,4 @@
-import type { GameState, SkillId, UpgradeSlot } from './types'
+import type { GameState, SkillId, TutorialStage, UpgradeSlot } from './types'
 import { clampLevel } from './xp'
 
 export const SAVE_KEY = 'osrshotwheels.save.v1'
@@ -27,6 +27,14 @@ export const ALL_SKILLS: SkillId[] = [
   'sailing',
 ]
 
+export const TUTORIAL_STAGES: TutorialStage[] = [
+  'intro',
+  'gather',
+  'workshop',
+  'test_drive',
+  'done',
+]
+
 export const ALL_SLOTS: UpgradeSlot[] = ['frame', 'axles', 'wheels', 'harness', 'aero', 'enchant']
 
 export function defaultState(now: number = Date.now()): GameState {
@@ -42,6 +50,7 @@ export function defaultState(now: number = Date.now()): GameState {
     raceWins: {},
     dogName: 'Scruffius',
     introSeen: false,
+    tutorial: 'intro',
     pendingBet: null,
   }
 }
@@ -61,6 +70,12 @@ export function reviveState(raw: unknown, now: number = Date.now()): GameState {
   }
   if (typeof data.selectedPotion === 'string') state.selectedPotion = data.selectedPotion
   if (data.introSeen === true) state.introSeen = true
+  if (TUTORIAL_STAGES.includes(data.tutorial as TutorialStage)) {
+    state.tutorial = data.tutorial as TutorialStage
+  } else if (state.introSeen) {
+    // Saves from before the tutorial existed have already seen the whole intro.
+    state.tutorial = 'done'
+  }
   if (typeof data.lastProcessed === 'number' && Number.isFinite(data.lastProcessed)) {
     state.lastProcessed = Math.min(data.lastProcessed, now)
   }

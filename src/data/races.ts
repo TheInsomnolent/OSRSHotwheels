@@ -470,6 +470,25 @@ export const RACES: RaceDef[] = [
   },
 ]
 
+/**
+ * The tutorial shakedown lap: the market circuit with the square to yourself.
+ * Only offered while the opening miniquest's guided tutorial is running, and
+ * carries no prize money (and no bookie) — it is just a shakedown.
+ */
+export const TEST_DRIVE_RACE: RaceDef = {
+  id: 'test_drive',
+  name: 'Test Drive',
+  location: 'Civitas illa Fortis \u2014 Market Square',
+  desc:
+    'One quiet lap of the market circuit with the square all to yourself. ' +
+    'No rivals, no prizes, no bookie \u2014 just a chance to see how the new ' +
+    'wheelchair rolls before the racing starts in earnest.',
+  track: MARKET_CIRCUIT,
+  laps: 1,
+  opponents: [],
+  rewards: [],
+}
+
 export const RACES_BY_ID: Record<string, RaceDef> = Object.fromEntries(
-  RACES.map((r) => [r.id, r]),
+  [...RACES, TEST_DRIVE_RACE].map((r) => [r.id, r]),
 )
