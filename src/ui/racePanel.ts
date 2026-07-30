@@ -193,7 +193,6 @@ function startRace(
   const finalize = (showOverlay: boolean) => {
     if (finalized) return
     finalized = true
-    ctx.uiLocked = false
 
     const player = sim.placements.find((p) => p.isPlayer)!
     const reward = race.rewards[Math.min(player.position - 1, race.rewards.length - 1)]
@@ -214,9 +213,13 @@ function startRace(
     ctx.save()
 
     if (showOverlay) {
+      // Keep the UI locked so the periodic refresh can't wipe the results
+      // overlay; leaveRace unlocks when the player continues or tabs away.
       skipButton.remove()
       countdownBox.textContent = ''
-      viewport.append(resultsOverlay(sim, ctx, container, setCleanup))
+      viewport.append(resultsOverlay(sim, ctx, container, setCleanup, leaveRace))
+    } else {
+      ctx.uiLocked = false
     }
   }
 
@@ -241,11 +244,14 @@ function startRace(
     },
   })
 
-  // If the player abandons the viewport (tab switch), settle the race quietly.
-  setCleanup(() => {
+  // Settle the race (rewards, unlock, GL teardown). Runs when the player
+  // clicks Continue, or via cleanup if they switch tabs mid-race.
+  const leaveRace = () => {
     finalize(false)
+    ctx.uiLocked = false
     handle.dispose()
-  })
+  }
+  setCleanup(leaveRace)
 }
 
 function resultsOverlay(
@@ -253,6 +259,7 @@ function resultsOverlay(
   ctx: GameCtx,
   container: HTMLElement,
   setCleanup: (fn: () => void) => void,
+  leaveRace: () => void,
 ): HTMLElement {
   const overlay = el('div', 'race-results')
   const panel = el('div', 'results-panel')
@@ -277,6 +284,7 @@ function resultsOverlay(
   panel.append(table)
   panel.append(
     button('Continue', 'osrs-button', () => {
+      leaveRace()
       renderLobby(container, ctx, setCleanup)
       ctx.refresh()
     }),
