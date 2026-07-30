@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   SAVE_KEY,
   addItem,
+  clearState,
   defaultState,
   itemCount,
   loadState,
@@ -13,12 +14,13 @@ import {
 
 const T0 = 1_000_000
 
-function memoryStorage(): Pick<Storage, 'getItem' | 'setItem'> & { data: Map<string, string> } {
+function memoryStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> & { data: Map<string, string> } {
   const data = new Map<string, string>()
   return {
     data,
     getItem: (k: string) => data.get(k) ?? null,
     setItem: (k: string, v: string) => void data.set(k, v),
+    removeItem: (k: string) => void data.delete(k),
   }
 }
 
@@ -97,5 +99,18 @@ describe('game state persistence', () => {
     expect(removeItem(state, 'logs', 5)).toBe(true)
     expect(state.inventory.logs).toBeUndefined()
     expect(serialiseState(state)).toContain('"version":1')
+  })
+
+  it('clears a saved game so the next load starts fresh', () => {
+    const storage = memoryStorage()
+    const state = defaultState(T0)
+    state.rsn = 'Zezima'
+    state.introSeen = true
+    saveState(storage, state)
+    expect(storage.data.has(SAVE_KEY)).toBe(true)
+
+    clearState(storage)
+    expect(storage.data.has(SAVE_KEY)).toBe(false)
+    expect(loadState(storage, T0)).toEqual(defaultState(T0))
   })
 })

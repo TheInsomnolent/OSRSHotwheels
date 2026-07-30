@@ -1,6 +1,6 @@
 import './style.css'
 import type { ChatMessage } from './engine/types'
-import { loadState, saveState } from './engine/state'
+import { clearState, loadState, saveState } from './engine/state'
 import { processIdle, type IdleReport } from './engine/idle'
 import { itemName } from './data/items'
 import { createApp } from './ui/app'
@@ -26,6 +26,10 @@ const ctx: GameCtx = {
   },
   refresh() {
     app?.refresh()
+  },
+  reset() {
+    clearState(localStorage)
+    window.location.reload()
   },
 }
 
