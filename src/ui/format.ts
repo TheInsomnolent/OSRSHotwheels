@@ -1,5 +1,8 @@
 /** Small DOM and formatting helpers shared by the UI panels. */
 
+import { itemIconUrl } from '../data/icons'
+import { ITEMS_BY_ID, itemName } from '../data/items'
+
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -9,6 +12,27 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (className) node.className = className
   if (text !== undefined) node.textContent = text
   return node
+}
+
+/** An item's OSRS inventory sprite, falling back to its emoji glyph. */
+export function itemIcon(id: string): HTMLElement {
+  const url = itemIconUrl(id)
+  if (url) {
+    const img = el('img', 'item-icon')
+    img.src = url
+    img.alt = ''
+    img.draggable = false
+    return img
+  }
+  return el('span', 'item-icon item-icon-emoji', ITEMS_BY_ID[id]?.icon ?? '❔')
+}
+
+/** A compact "[icon] 3× Iron bar" chip used in cost and input/output lines. */
+export function itemChip(id: string, label: string): HTMLElement {
+  const chip = el('span', 'item-chip')
+  chip.append(itemIcon(id), el('span', undefined, label))
+  chip.title = itemName(id)
+  return chip
 }
 
 export function button(label: string, className: string, onClick: () => void): HTMLButtonElement {

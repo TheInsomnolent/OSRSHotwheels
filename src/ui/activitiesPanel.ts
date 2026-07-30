@@ -4,8 +4,9 @@ import { ACTIVITIES } from '../data/activities'
 import { SKILL_NAMES } from '../data/skills'
 import { itemName } from '../data/items'
 import { actionMs, canStartActivity, setActivity } from '../engine/idle'
+import { relevantActivities } from '../engine/relevance'
 import { itemCount } from '../engine/state'
-import { button, el, formatDuration } from './format'
+import { button, el, formatDuration, itemChip } from './format'
 
 /** The idle heart of the game: pick what your character gathers or processes. */
 export function renderActivitiesPanel(container: HTMLElement, ctx: GameCtx): void {
@@ -38,8 +39,11 @@ export function renderActivitiesPanel(container: HTMLElement, ctx: GameCtx): voi
   }
   container.append(banner)
 
+  const visible = relevantActivities(ctx.state)
+  const hidden = ACTIVITIES.length - visible.length
+
   const groups = new Map<SkillId, ActivityDef[]>()
-  for (const activity of ACTIVITIES) {
+  for (const activity of visible) {
     const list = groups.get(activity.skill) ?? []
     list.push(activity)
     groups.set(activity.skill, list)
@@ -54,6 +58,17 @@ export function renderActivitiesPanel(container: HTMLElement, ctx: GameCtx): voi
     for (const activity of activities) list.append(activityCard(activity, ctx))
     section.append(list)
     container.append(section)
+  }
+
+  if (hidden > 0) {
+    container.append(
+      el(
+        'p',
+        'panel-footnote',
+        `${hidden} ${hidden === 1 ? 'activity is' : 'activities are'} hidden \u2014 ` +
+          'their materials aren\u2019t needed for any current project.',
+      ),
+    )
   }
 }
 
@@ -78,21 +93,16 @@ function activityCard(activity: ActivityDef, ctx: GameCtx): HTMLElement {
   const ms = actionMs(activity, ctx.state.skills[activity.skill])
   if (activity.inputs?.length) {
     const missing = activity.inputs.some((i) => itemCount(ctx.state, i.item) < i.qty)
-    io.append(
-      el(
-        'span',
-        `io-in${missing && active ? ' missing' : ''}`,
-        `Uses: ${activity.inputs.map((i) => `${i.qty}× ${itemName(i.item)}`).join(', ')}`,
-      ),
-    )
+    const line = el('span', `io-in${missing && active ? ' missing' : ''}`)
+    line.append(el('span', undefined, 'Uses: '))
+    for (const i of activity.inputs) line.append(itemChip(i.item, `${i.qty}× ${itemName(i.item)}`))
+    io.append(line)
   }
-  io.append(
-    el(
-      'span',
-      'io-out',
-      `Makes: ${activity.outputs.map((o) => `${o.qty}× ${itemName(o.item)}`).join(', ')} every ${formatDuration(ms)}`,
-    ),
-  )
+  const out = el('span', 'io-out')
+  out.append(el('span', undefined, 'Makes: '))
+  for (const o of activity.outputs) out.append(itemChip(o.item, `${o.qty}× ${itemName(o.item)}`))
+  out.append(el('span', undefined, ` every ${formatDuration(ms)}`))
+  io.append(out)
   card.append(io)
 
   if (active) {

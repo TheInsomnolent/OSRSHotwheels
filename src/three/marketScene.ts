@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mulberry32 } from '../engine/rng'
+import type { CompiledTrack } from '../engine/track'
 
 /**
  * The Civitas illa Fortis market square: a sun-baked Varlamore plaza with a
@@ -19,32 +20,17 @@ function box(w: number, h: number, d: number, color: number, x = 0, y = 0, z = 0
   return mesh
 }
 
-/** Closed racing loop around the market: a rounded rectangle on the XZ plane. */
-export function createTrackCurve(): THREE.CatmullRomCurve3 {
-  const a = 46 // half-width (x)
-  const b = 24 // half-depth (z)
-  const r = 13 // corner radius
+/** Build a renderable closed curve from a compiled track's centreline. */
+export function createTrackCurve(track: CompiledTrack): THREE.CatmullRomCurve3 {
+  const step = 2 // metres between samples; arcs are gentle at this density
+  const count = Math.max(24, Math.floor(track.lengthM / step))
   const points: THREE.Vector3[] = []
-  const corner = (cx: number, cz: number, from: number, segments = 5) => {
-    for (let i = 0; i <= segments; i++) {
-      const angle = from + (i / segments) * (Math.PI / 2)
-      points.push(new THREE.Vector3(cx + r * Math.cos(angle), 0, cz + r * Math.sin(angle)))
-    }
+  for (let i = 0; i < count; i++) {
+    const p = track.pointAt((i / count) * track.lengthM)
+    points.push(new THREE.Vector3(p.x, 0, p.z))
   }
-  // Start at bottom-centre heading +x (counter-clockwise seen from above).
-  points.push(new THREE.Vector3(0, 0, b))
-  points.push(new THREE.Vector3((a - r) * 0.55, 0, b))
-  corner(a - r, b - r, Math.PI / 2, 5)
-  points.push(new THREE.Vector3(a, 0, 0))
-  corner(a - r, -(b - r), 0, 5)
-  points.push(new THREE.Vector3(0, 0, -b))
-  corner(-(a - r), -(b - r), -Math.PI / 2, 5)
-  points.push(new THREE.Vector3(-a, 0, 0))
-  corner(-(a - r), b - r, Math.PI, 5)
-  points.push(new THREE.Vector3(-(a - r) * 0.55, 0, b))
-
-  const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.2)
-  curve.arcLengthDivisions = 600
+  const curve = new THREE.CatmullRomCurve3(points, true, 'centripetal')
+  curve.arcLengthDivisions = 1200
   return curve
 }
 
@@ -213,23 +199,53 @@ function buildStartArch(curve: THREE.CatmullRomCurve3): THREE.Group {
   return arch
 }
 
+/** Nearest-point probe against the track centreline, for safe decoration placement. */
+function buildTrackProbe(curve: THREE.CatmullRomCurve3): {
+  samples: THREE.Vector3[]
+  nearest(x: number, z: number): { point: THREE.Vector3; dist: number }
+} {
+  const samples: THREE.Vector3[] = []
+  const count = 280
+  for (let i = 0; i < count; i++) samples.push(curve.getPointAt(i / count))
+  return {
+    samples,
+    nearest(x, z) {
+      let best = samples[0]
+      let bestDist = Infinity
+      for (const sample of samples) {
+        const dist = Math.hypot(sample.x - x, sample.z - z)
+        if (dist < bestDist) {
+          bestDist = dist
+          best = sample
+        }
+      }
+      return { point: best, dist: bestDist }
+    },
+  }
+}
+
 /** Assemble the whole market. Deterministic layout via seeded RNG. */
 export function buildMarket(scene: THREE.Scene, curve: THREE.CatmullRomCurve3): void {
   const rng = mulberry32(20240325) // Varlamore launch day, of course
+  const probe = buildTrackProbe(curve)
+  const bounds = new THREE.Box3().setFromPoints(probe.samples)
 
-  // Sun-baked ground
+  // Sun-baked ground, sized to the circuit plus a generous apron
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(240, 170),
+    new THREE.PlaneGeometry(bounds.max.x - bounds.min.x + 130, bounds.max.z - bounds.min.z + 100),
     new THREE.MeshLambertMaterial({ color: 0xd9b380 }),
   )
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
   scene.add(ground)
 
-  // Plaza paving inside the circuit
-  const plaza = new THREE.Mesh(new THREE.CircleGeometry(19, 18), lambert(0xe2cf9f))
+  // The market plaza fills the open southern infield, well clear of the
+  // hairpin complex that dips into the northern half of the circuit.
+  const plazaX = 0
+  const plazaZ = 13
+  const plaza = new THREE.Mesh(new THREE.CircleGeometry(11.5, 18), lambert(0xe2cf9f))
   plaza.rotation.x = -Math.PI / 2
-  plaza.position.y = 0.015
+  plaza.position.set(plazaX, 0.015, plazaZ)
   plaza.receiveShadow = true
   scene.add(plaza)
 
@@ -237,55 +253,73 @@ export function buildMarket(scene: THREE.Scene, curve: THREE.CatmullRomCurve3): 
   scene.add(buildStartArch(curve))
 
   const fountain = buildFountain()
+  fountain.position.set(plazaX, 0, plazaZ)
   scene.add(fountain)
 
   // Market stalls arranged around the fountain
-  const stallRadius = 11
+  const stallRadius = 7.5
   for (let i = 0; i < 6; i++) {
     const angle = (i / 6) * Math.PI * 2 + 0.35
     const stall = buildStall(rng)
-    stall.position.set(Math.cos(angle) * stallRadius, 0, Math.sin(angle) * stallRadius * 0.8)
+    stall.position.set(
+      plazaX + Math.cos(angle) * stallRadius,
+      0,
+      plazaZ + Math.sin(angle) * stallRadius,
+    )
     stall.rotation.y = -angle + Math.PI / 2
     scene.add(stall)
   }
 
-  // Crates and barrels dotted about the infield
-  for (let i = 0; i < 8; i++) {
+  // Crates and barrels dotted around the plaza rim, kept off the racing line
+  for (let placed = 0, attempt = 0; placed < 8 && attempt < 80; attempt++) {
     const angle = rng() * Math.PI * 2
-    const radius = 15 + rng() * 4
+    const radius = 10 + rng() * 3.5
+    const x = plazaX + Math.cos(angle) * radius
+    const z = plazaZ + Math.sin(angle) * radius
+    if (probe.nearest(x, z).dist < 6.5) continue
+    placed++
     if (rng() > 0.5) {
       const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.95, 8), lambert(0x8a5a2b))
-      barrel.position.set(Math.cos(angle) * radius, 0.48, Math.sin(angle) * radius * 0.55)
+      barrel.position.set(x, 0.48, z)
       barrel.castShadow = true
       scene.add(barrel)
     } else {
-      scene.add(box(0.8, 0.8, 0.8, 0xa9743c, Math.cos(angle) * radius, 0.4, Math.sin(angle) * radius * 0.55))
+      scene.add(box(0.8, 0.8, 0.8, 0xa9743c, x, 0.4, z))
     }
   }
 
-  // Colonnade ringing the outside of the circuit
-  const colonnadeCurve = createTrackCurve()
-  const segments = 26
-  for (let i = 0; i < segments; i++) {
-    const u = i / segments
-    const point = colonnadeCurve.getPointAt(u)
-    const tangent = colonnadeCurve.getTangentAt(u)
-    const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), tangent).normalize()
+  // Colonnade around the whole square, framing the circuit
+  const margin = 8
+  const spacing = 7.2
+  const west = bounds.min.x - margin
+  const east = bounds.max.x + margin
+  const north = bounds.min.z - margin
+  const south = bounds.max.z + margin
+  const colonnade = (x: number, z: number, ry: number) => {
     const segment = buildColonnadeSegment()
-    segment.position.copy(point).addScaledVector(side, TRACK_WIDTH / 2 + 6.5)
-    segment.rotation.y = Math.atan2(tangent.x, tangent.z) + Math.PI / 2
+    segment.position.set(x, 0, z)
+    segment.rotation.y = ry
     scene.add(segment)
   }
+  for (let x = west + spacing / 2; x <= east - spacing / 2; x += spacing) {
+    colonnade(x, north, 0)
+    colonnade(x, south, 0)
+  }
+  for (let z = north + spacing; z <= south - spacing; z += spacing) {
+    colonnade(west, z, Math.PI / 2)
+    colonnade(east, z, Math.PI / 2)
+  }
 
-  // An adoring crowd between the track and the colonnade
-  for (let i = 0; i < 46; i++) {
-    const u = rng()
-    const point = curve.getPointAt(u)
-    const tangent = curve.getTangentAt(u)
-    const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), tangent).normalize()
+  // An adoring crowd scattered alongside the track, facing the racing
+  for (let placed = 0, attempt = 0; placed < 46 && attempt < 500; attempt++) {
+    const x = bounds.min.x - 5 + rng() * (bounds.max.x - bounds.min.x + 10)
+    const z = bounds.min.z - 5 + rng() * (bounds.max.z - bounds.min.z + 10)
+    const { point, dist } = probe.nearest(x, z)
+    if (dist < 6 || dist > 11) continue
+    if (Math.hypot(x - plazaX, z - plazaZ) < 13) continue
+    placed++
     const person = buildSpectator(rng)
-    person.position.copy(point).addScaledVector(side, TRACK_WIDTH / 2 + 1.6 + rng() * 3.4)
-    person.position.y = 0
+    person.position.set(x, 0, z)
     person.lookAt(point.x, 1, point.z)
     scene.add(person)
   }

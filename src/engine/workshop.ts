@@ -1,4 +1,4 @@
-import type { GameState, RacerStats, UpgradeSlot, UpgradeTier } from './types'
+import type { GameState, RacerStats, UpgradeSlot, UpgradeSlotDef, UpgradeTier } from './types'
 import { BASE_DOG_STATS, UPGRADE_SLOTS_BY_ID, tierDef } from '../data/upgrades'
 import { ITEMS_BY_ID } from '../data/items'
 import { itemCount, removeItem } from './state'
@@ -14,6 +14,16 @@ export interface BuildResult {
 /** The next tier the player can work towards in a slot (undefined when maxed). */
 export function nextTier(state: GameState, slot: UpgradeSlot): UpgradeTier | undefined {
   return tierDef(slot, (state.upgrades[slot] ?? 0) + 1)
+}
+
+/** Parts a dog cannot safely race without: no chassis, no start. */
+export const REQUIRED_RACE_SLOTS: UpgradeSlot[] = ['frame', 'axles', 'wheels', 'harness']
+
+/** Required part slots (frame, axles, wheels, harness) still missing tier 1. */
+export function missingRaceParts(state: GameState): UpgradeSlotDef[] {
+  return REQUIRED_RACE_SLOTS.filter((slot) => (state.upgrades[slot] ?? 0) < 1).map(
+    (slot) => UPGRADE_SLOTS_BY_ID[slot],
+  )
 }
 
 export function canAfford(state: GameState, tier: UpgradeTier): boolean {

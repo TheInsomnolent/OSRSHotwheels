@@ -2,11 +2,13 @@ import type { GameCtx } from './context'
 import type { OpponentDef, RaceDef } from '../engine/types'
 import { RACES } from '../data/races'
 import { ITEMS_BY_ID, itemName } from '../data/items'
-import { computeStats } from '../engine/workshop'
+import { computeStats, missingRaceParts } from '../engine/workshop'
 import { addItem, itemCount, removeItem } from '../engine/state'
 import { simulateRace, type RaceSimOutput } from '../engine/raceSim'
+import { computeOdds, cancelBet, placeBet, settleBet } from '../engine/betting'
+import type { CompiledTrack } from '../engine/track'
 import { hashSeed } from '../engine/rng'
-import { runRaceScene, type RaceSceneHandle } from '../three/raceScene'
+import { runRaceScene, type RaceSceneHandle, type RaceStanding } from '../three/raceScene'
 import { button, el, formatRaceTime, ordinal } from './format'
 
 /** Renders the race lobby, and runs races in the 3D viewport. Returns a cleanup. */
@@ -129,7 +131,11 @@ function raceCard(
 
   const wins = ctx.state.raceWins[race.id] ?? 0
   card.append(
-    el('div', 'io-out', `${race.lengthM}m · ${race.laps} lap · Wins: ${wins}`),
+    el(
+      'div',
+      'io-out',
+      `${Math.round(race.track.lengthM)}m lap · ${race.laps} laps · Wins: ${wins}`,
+    ),
   )
 
   const lineup = el('div', 'race-lineup')
@@ -149,12 +155,101 @@ function raceCard(
     ),
   )
 
-  card.append(
-    button('Start race!', 'osrs-button start-race', () =>
-      startRace(race, ctx, container, setCleanup),
-    ),
+  card.append(bettingBox(race, ctx))
+
+  const missing = missingRaceParts(ctx.state)
+  const start = button('Start race!', 'osrs-button start-race', () =>
+    startRace(race, ctx, container, setCleanup),
   )
+  if (missing.length > 0) {
+    start.disabled = true
+    card.append(start)
+    card.append(
+      el(
+        'div',
+        'race-gate-hint',
+        `⚠ ${ctx.state.dogName} needs a frame, axles, wheels and a harness before racing. ` +
+          `Still missing: ${missing.map((slot) => slot.name.toLowerCase()).join(', ')}.`,
+      ),
+    )
+  } else {
+    card.append(start)
+  }
   return card
+}
+
+/** The trackside bookie: stake coins on any dog in the field before the race. */
+function bettingBox(race: RaceDef, ctx: GameCtx): HTMLElement {
+  const box = el('div', 'betting-box')
+  box.append(el('div', 'lineup-title', '💰 Trackside bookie'))
+
+  const pending = ctx.state.pendingBet
+  if (pending && pending.raceId === race.id) {
+    box.append(
+      el(
+        'div',
+        'bet-slip',
+        `${pending.stake} coins riding on ${pending.racerName} at ${pending.odds.toFixed(1)}× — ` +
+          `pays ${Math.floor(pending.stake * pending.odds)} if they win.`,
+      ),
+    )
+    box.append(
+      button('Cancel bet', 'osrs-button small', () => {
+        cancelBet(ctx.state)
+        ctx.log('The bookie returns your stake, shaking his head.', 'game')
+        ctx.save()
+        ctx.refresh()
+      }),
+    )
+    return box
+  }
+
+  const coins = itemCount(ctx.state, 'coins')
+  if (coins <= 0) {
+    box.append(el('div', 'side-hint', 'Win some coins first — the bookie only takes cold coinage.'))
+    return box
+  }
+
+  const offers = computeOdds(race, {
+    name: ctx.state.dogName,
+    stats: computeStats(ctx.state, ownedPotion(ctx)),
+  })
+
+  const row = el('div', 'bet-row')
+  const select = el('select', 'osrs-select') as HTMLSelectElement
+  for (const offer of offers) {
+    const label = offer.isPlayer ? `${offer.name} (your dog)` : offer.name
+    const option = el('option', '', `${label} — ${offer.odds.toFixed(1)}×`) as HTMLOptionElement
+    option.value = offer.racerId
+    select.append(option)
+  }
+  const stakeInput = el('input', 'osrs-input bet-stake') as HTMLInputElement
+  stakeInput.type = 'number'
+  stakeInput.min = '1'
+  stakeInput.max = String(coins)
+  stakeInput.placeholder = 'Stake'
+  row.append(select, stakeInput)
+  row.append(
+    button('Place bet', 'osrs-button small', () => {
+      const offer = offers.find((o) => o.racerId === select.value)
+      if (!offer) return
+      const stake = Number(stakeInput.value)
+      const bet = placeBet(ctx.state, race, offer, stake)
+      if (!bet) {
+        ctx.log('The bookie squints at your stake and shakes his head.', 'error')
+        return
+      }
+      ctx.log(
+        `You stake ${bet.stake} coins on ${bet.racerName} at ${bet.odds.toFixed(1)}×.`,
+        'game',
+      )
+      ctx.save()
+      ctx.refresh()
+    }),
+  )
+  box.append(row)
+  box.append(el('div', 'side-hint', `You have ${coins} coins. Winnings pay stake × odds.`))
+  return box
 }
 
 function startRace(
@@ -180,12 +275,24 @@ function startRace(
   container.replaceChildren()
   const viewport = el('div', 'race-viewport')
   const hud = el('div', 'race-hud')
-  const standingsBox = el('div', 'hud-standings')
+  const towerBox = el('div', 'hud-tower')
   const clockBox = el('div', 'hud-clock', '0.0s')
+  const lapBox = el('div', 'hud-lap', `Lap 1/${race.laps}`)
   const countdownBox = el('div', 'hud-countdown')
-  hud.append(standingsBox, clockBox, countdownBox)
-  const skipButton = button('Skip ▸▸', 'osrs-button hud-skip', () => handle.skip())
-  hud.append(skipButton)
+  const minimap = createMinimap(race.track)
+  hud.append(towerBox, clockBox, lapBox, countdownBox, minimap.canvas)
+
+  const controls = el('div', 'hud-controls')
+  const speedButtons: HTMLButtonElement[] = [1, 2, 5, 10].map((mult) => {
+    const b = button(`${mult}×`, `osrs-button small hud-speed${mult === 1 ? ' active' : ''}`, () => {
+      handle.setSpeed(mult)
+      for (const other of speedButtons) other.classList.toggle('active', other === b)
+    })
+    return b
+  })
+  const skipButton = button('Skip ▸▸', 'osrs-button small hud-skip', () => handle.skip())
+  controls.append(...speedButtons, skipButton)
+  hud.append(controls)
   viewport.append(hud)
   container.append(viewport)
 
@@ -210,12 +317,27 @@ function startRace(
         ? ` and ${reward.items.map((i) => `${i.qty}× ${itemName(i.item)}`).join(', ')}`
         : '')
     ctx.log(`${rewardText}.`, 'reward')
+
+    const settled = settleBet(ctx.state, race.id, sim.placements[0].racerId)
+    if (settled) {
+      if (settled.payout > 0) {
+        ctx.log(
+          `The bookie grudgingly counts out ${settled.payout} coins on ${settled.bet.racerName}.`,
+          'reward',
+        )
+      } else {
+        ctx.log(
+          `Your ${settled.bet.stake} coin stake on ${settled.bet.racerName} vanishes into the bookie's coat.`,
+          'game',
+        )
+      }
+    }
     ctx.save()
 
     if (showOverlay) {
       // Keep the UI locked so the periodic refresh can't wipe the results
       // overlay; leaveRace unlocks when the player continues or tabs away.
-      skipButton.remove()
+      controls.remove()
       countdownBox.textContent = ''
       viewport.append(resultsOverlay(sim, ctx, container, setCleanup, leaveRace))
     } else {
@@ -226,6 +348,7 @@ function startRace(
   const handle: RaceSceneHandle = runRaceScene({
     container: viewport,
     sim,
+    track: race.track,
     onCountdown(value) {
       countdownBox.textContent = value === 'go' ? 'Go!' : String(value)
       countdownBox.classList.toggle('go', value === 'go')
@@ -233,11 +356,10 @@ function startRace(
     },
     onProgress(standings, raceTimeS) {
       clockBox.textContent = `${raceTimeS.toFixed(1)}s`
-      standingsBox.replaceChildren(
-        ...standings.map((s, i) =>
-          el('div', `standing${s.isPlayer ? ' player' : ''}`, `${i + 1}. ${s.name}`),
-        ),
-      )
+      const player = standings.find((s) => s.isPlayer)
+      if (player) lapBox.textContent = `Lap ${player.lap}/${race.laps}`
+      towerBox.replaceChildren(...standings.map((s, i) => towerRow(s, i)))
+      minimap.draw(standings)
     },
     onFinished() {
       finalize(true)
@@ -252,6 +374,88 @@ function startRace(
     handle.dispose()
   }
   setCleanup(leaveRace)
+}
+
+/** One line of the timing tower: position, colour chip, name, gap/time. */
+function towerRow(standing: RaceStanding, index: number): HTMLElement {
+  const row = el('div', `tower-row${standing.isPlayer ? ' player' : ''}`)
+  const chip = el('span', 'tower-chip')
+  chip.style.background = `#${standing.colour.toString(16).padStart(6, '0')}`
+  const gap =
+    standing.timeS !== null
+      ? formatRaceTime(standing.timeS)
+      : index === 0
+        ? 'Leader'
+        : `+${standing.gapS.toFixed(1)}s`
+  row.append(
+    el('span', 'tower-pos', String(index + 1)),
+    chip,
+    el('span', 'tower-name', standing.name),
+    el('span', 'tower-gap', gap),
+  )
+  return row
+}
+
+/** A little top-down course map with live racer blips. */
+function createMinimap(track: CompiledTrack): {
+  canvas: HTMLCanvasElement
+  draw(standings: RaceStanding[]): void
+} {
+  const size = 150
+  const canvas = el('canvas', 'hud-minimap') as HTMLCanvasElement
+  canvas.width = size
+  canvas.height = size
+  const g = canvas.getContext('2d')!
+  const pad = 16
+  const scale = Math.min(
+    (size - pad * 2) / (track.halfW * 2),
+    (size - pad * 2) / (track.halfD * 2),
+  )
+  const toX = (x: number) => size / 2 + x * scale
+  const toY = (z: number) => size / 2 + z * scale
+
+  const steps = Math.max(64, Math.round(track.lengthM / 2))
+  const outline = Array.from({ length: steps }, (_, i) =>
+    track.pointAt((i / steps) * track.lengthM),
+  )
+  // Perpendicular of the start line, for the chequered tick.
+  const p0 = track.pointAt(0)
+  const p1 = track.pointAt(1)
+  const dir = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1
+  const nx = -(p1.z - p0.z) / dir
+  const nz = (p1.x - p0.x) / dir
+
+  return {
+    canvas,
+    draw(standings) {
+      g.clearRect(0, 0, size, size)
+      g.beginPath()
+      outline.forEach((p, i) => (i === 0 ? g.moveTo(toX(p.x), toY(p.z)) : g.lineTo(toX(p.x), toY(p.z))))
+      g.closePath()
+      g.lineJoin = 'round'
+      g.lineWidth = Math.max(4, 9 * scale)
+      g.strokeStyle = 'rgb(240 226 198 / 80%)'
+      g.stroke()
+      // Start/finish line
+      g.beginPath()
+      g.moveTo(toX(p0.x - nx * 5), toY(p0.z - nz * 5))
+      g.lineTo(toX(p0.x + nx * 5), toY(p0.z + nz * 5))
+      g.lineWidth = 2
+      g.strokeStyle = '#3a2f22'
+      g.stroke()
+      // Racer blips, player drawn last so they sit on top
+      for (const s of [...standings].reverse()) {
+        const p = track.pointAt(s.lapDist)
+        g.beginPath()
+        g.arc(toX(p.x), toY(p.z), s.isPlayer ? 4.5 : 3.5, 0, Math.PI * 2)
+        g.fillStyle = `#${s.colour.toString(16).padStart(6, '0')}`
+        g.fill()
+        g.lineWidth = s.isPlayer ? 2 : 1
+        g.strokeStyle = s.isPlayer ? '#ffe97d' : 'rgb(0 0 0 / 55%)'
+        g.stroke()
+      }
+    },
+  }
 }
 
 function resultsOverlay(

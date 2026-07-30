@@ -1,5 +1,7 @@
 /** Core shared types for the OSRS Hot Wheels engine. */
 
+import type { CompiledTrack } from './track'
+
 /** Skills used by the simulator. A subset of OSRS skills relevant to wheelchair racing. */
 export type SkillId =
   | 'woodcutting'
@@ -85,11 +87,13 @@ export interface RaceDef {
   name: string
   location: string
   desc: string
-  /** Track length in metres. */
-  lengthM: number
+  /**
+   * The racing circuit, compiled from straights and corners (each corner has
+   * a turn angle and radius). Provides lap length, corner speed zones and
+   * centreline geometry for the sim, 3D scene and minimap.
+   */
+  track: CompiledTrack
   laps: number
-  /** Corners along a lap; `at` is metres from the start line, severity 0..0.6. */
-  corners: { at: number; severity: number }[]
   opponents: OpponentDef[]
   rewards: RaceReward[]
 }
@@ -98,6 +102,18 @@ export interface ChatMessage {
   text: string
   kind: 'game' | 'reward' | 'system' | 'error'
   time: number
+}
+
+/** A stake placed with the trackside bookie ahead of a race. */
+export interface PendingBet {
+  raceId: string
+  /** 'player' or an opponent id. */
+  racerId: string
+  racerName: string
+  /** Coins staked (already deducted from the inventory). */
+  stake: number
+  /** Decimal odds locked in when the bet was placed. */
+  odds: number
 }
 
 /** Persistent game state. Stored in localStorage. */
@@ -120,4 +136,6 @@ export interface GameState {
   raceWins: Record<string, number>
   /** Player's dog's name. */
   dogName: string
+  /** Outstanding bookie bet, settled when its race is run. */
+  pendingBet: PendingBet | null
 }

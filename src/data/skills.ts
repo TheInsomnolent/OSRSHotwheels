@@ -19,7 +19,7 @@ export const SKILLS: SkillInfo[] = [
   { id: 'herblore', name: 'Herblore', use: 'Brew performance-enhancing potions', icon: '🧪' },
   { id: 'farming', name: 'Farming', use: 'Grow herbs and tend cattle', icon: '🌱' },
   { id: 'magic', name: 'Magic', use: 'Enchant the wheelchair', icon: '🪄' },
-  { id: 'sailing', name: 'Sailing', use: 'Rig aerodynamic sailcloth', icon: '⛵' },
+  { id: 'sailing', name: 'Sailing', use: 'Weave linen, canvas and cotton sailcloth', icon: '⛵' },
 ]
 
 export const SKILL_NAMES: Record<SkillId, string> = Object.fromEntries(

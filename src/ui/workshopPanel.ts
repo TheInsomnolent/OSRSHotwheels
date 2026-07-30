@@ -5,7 +5,7 @@ import { SKILL_NAMES } from '../data/skills'
 import { itemName } from '../data/items'
 import { buildUpgrade, canAfford, computeStats, meetsLevel } from '../engine/workshop'
 import { itemCount } from '../engine/state'
-import { button, el } from './format'
+import { button, el, itemChip } from './format'
 
 /** The garage: turn hard-earned resources into wheelchair go-faster parts. */
 export function renderWorkshopPanel(container: HTMLElement, ctx: GameCtx): void {
@@ -48,9 +48,23 @@ function slotSection(slotDef: UpgradeSlotDef, ctx: GameCtx): HTMLElement {
   )
   section.append(el('p', 'card-desc', slotDef.flavour))
 
+  // Progressive disclosure: superseded tiers are history and future tiers
+  // stay under wraps — only the fitted part and the next project show.
+  const visible = slotDef.tiers.filter((t) => t.tier === owned || t.tier === owned + 1)
   const list = el('div', 'tier-list')
-  for (const tier of slotDef.tiers) list.append(tierCard(slotDef, tier, owned, ctx))
+  for (const tier of visible) list.append(tierCard(slotDef, tier, owned, ctx))
   section.append(list)
+
+  const hiddenAhead = slotDef.tiers.filter((t) => t.tier > owned + 1).length
+  if (hiddenAhead > 0) {
+    section.append(
+      el(
+        'p',
+        'panel-footnote',
+        `${hiddenAhead} more tier${hiddenAhead === 1 ? '' : 's'} to uncover beyond this one.`,
+      ),
+    )
+  }
   return section
 }
 
@@ -87,13 +101,9 @@ function tierCard(
   const costLine = el('div', 'cost-line')
   for (const cost of tier.cost) {
     const have = itemCount(ctx.state, cost.item)
-    costLine.append(
-      el(
-        'span',
-        `cost-item${have >= cost.qty ? ' met' : ' unmet'}`,
-        `${itemName(cost.item)} ${Math.min(have, cost.qty)}/${cost.qty}`,
-      ),
-    )
+    const chip = itemChip(cost.item, `${itemName(cost.item)} ${Math.min(have, cost.qty)}/${cost.qty}`)
+    chip.classList.add('cost-item', have >= cost.qty ? 'met' : 'unmet')
+    costLine.append(chip)
   }
   card.append(costLine)
 

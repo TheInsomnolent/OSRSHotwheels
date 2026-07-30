@@ -1,16 +1,28 @@
 import * as THREE from 'three'
 import type { RaceSimOutput } from '../engine/raceSim'
+import type { CompiledTrack } from '../engine/track'
 import { buildMarket, createTrackCurve } from './marketScene'
 import { createDog, type DogRig } from './dogRig'
 
 export interface RaceStanding {
   name: string
   isPlayer: boolean
+  colour: number
+  /** Metres into the current lap — drives the minimap. */
+  lapDist: number
+  /** Current lap, 1-based and clamped to the race distance. */
+  lap: number
+  /** Gap to the leader in seconds (0 for the leader). */
+  gapS: number
+  /** Official finish time, present once this racer has crossed the line. */
+  timeS: number | null
 }
 
 export interface RaceSceneOptions {
   container: HTMLElement
   sim: RaceSimOutput
+  /** The compiled circuit driving both the 3D track and racer placement. */
+  track: CompiledTrack
   /** Called during the pre-race countdown with 3, 2, 1 then 'go'. */
   onCountdown(value: number | 'go'): void
   /** Called every animation frame with live standings and the race clock. */
@@ -21,6 +33,8 @@ export interface RaceSceneOptions {
 
 export interface RaceSceneHandle {
   skip(): void
+  /** Playback speed multiplier: 1, 2, 5 or 10. Applies once the race is underway. */
+  setSpeed(multiplier: number): void
   dispose(): void
 }
 
@@ -61,7 +75,7 @@ export function runRaceScene(options: RaceSceneOptions): RaceSceneHandle {
   sun.shadow.camera.far = 250
   scene.add(sun)
 
-  const curve = createTrackCurve()
+  const curve = createTrackCurve(options.track)
   buildMarket(scene, curve)
 
   const up = new THREE.Vector3(0, 1, 0)
@@ -83,7 +97,7 @@ export function runRaceScene(options: RaceSceneOptions): RaceSceneHandle {
   const playerIndex = sim.racers.findIndex((r) => r.isPlayer)
 
   function placeDog(dog: DogRig, dist: number, lane: number): void {
-    const u = THREE.MathUtils.euclideanModulo(dist / sim.totalLengthM, 1)
+    const u = THREE.MathUtils.euclideanModulo(dist / sim.lapLengthM, 1)
     curve.getPointAt(u, scratch.point)
     curve.getTangentAt(u, scratch.tangent)
     scratch.side.crossVectors(up, scratch.tangent).normalize()
@@ -102,9 +116,12 @@ export function runRaceScene(options: RaceSceneOptions): RaceSceneHandle {
 
   const lastTick = Math.max(...sim.distances.map((d) => d.length)) - 1
   const playbackEndS = lastTick * sim.dt
+  const finishTimes = new Map(sim.placements.map((p) => [p.racerId, p.timeS]))
 
   // ── Playback state ─────────────────────────────────────────────
-  let elapsed = 0 // seconds since scene start (includes countdown)
+  let elapsed = 0 // wall-clock seconds since scene start (ambient animation)
+  let raceClock = -COUNTDOWN_S // race seconds; negative during the countdown
+  let speedMultiplier = 1
   let lastCountdown = -1
   let finished = false
   let disposed = false
@@ -140,8 +157,10 @@ export function runRaceScene(options: RaceSceneOptions): RaceSceneHandle {
     const dt = Math.min((nowMs - lastFrameMs) / 1000, 0.1)
     lastFrameMs = nowMs
     elapsed += dt
+    // The countdown always runs in real time; the race itself can fast-forward.
+    raceClock += dt * (raceClock < 0 ? 1 : speedMultiplier)
 
-    const raceTime = elapsed - COUNTDOWN_S
+    const raceTime = raceClock
 
     if (raceTime < 0) {
       const remaining = Math.ceil(-raceTime)
@@ -165,33 +184,58 @@ export function runRaceScene(options: RaceSceneOptions): RaceSceneHandle {
         options.onCountdown('go')
       }
       const t = Math.min(raceTime, playbackEndS)
-      const speeds: number[] = []
+      const playbackDt = dt * speedMultiplier
       for (let i = 0; i < dogs.length; i++) {
         const dist = distAt(i, t)
         const speed = (distAt(i, Math.min(t + 0.2, playbackEndS)) - dist) / 0.2
-        speeds.push(speed)
         placeDog(dogs[i], dist, LANES[i % LANES.length])
-        dogs[i].update(speed, dt, elapsed)
+        dogs[i].update(speed, playbackDt, elapsed)
       }
 
       // Follow the player's dog.
       const playerDog = dogs[playerIndex]
-      const u = THREE.MathUtils.euclideanModulo(distAt(playerIndex, t) / sim.totalLengthM, 1)
+      const u = THREE.MathUtils.euclideanModulo(
+        distAt(playerIndex, t) / sim.lapLengthM,
+        1,
+      )
       curve.getTangentAt(u, scratch.tangent)
       scratch.camIdeal
         .copy(playerDog.group.position)
         .addScaledVector(scratch.tangent, -8)
         .add(up.clone().multiplyScalar(3.6))
-      camera.position.lerp(scratch.camIdeal, 1 - Math.exp(-4 * dt))
+      camera.position.lerp(scratch.camIdeal, 1 - Math.exp(-4 * dt * speedMultiplier))
       scratch.camTarget.copy(playerDog.group.position).addScaledVector(scratch.tangent, 5)
       scratch.camTarget.y += 0.9
       camera.lookAt(scratch.camTarget)
 
-      // Live standings by distance covered (finished racers keep their order).
-      const standings = sim.racers
-        .map((racer, i) => ({ racer, dist: distAt(i, t) }))
-        .sort((a, b) => b.dist - a.dist)
-        .map(({ racer }) => ({ name: racer.name, isPlayer: racer.isPlayer }))
+      // Live standings: finished racers rank by official time, the rest by
+      // distance covered. Gaps to the leader are estimated in seconds.
+      const live = sim.racers.map((racer, i) => {
+        const dist = distAt(i, t)
+        const speed = (distAt(i, Math.min(t + 0.2, playbackEndS)) - dist) / 0.2
+        const finishTime = finishTimes.get(racer.id) ?? null
+        const timeS = finishTime !== null && finishTime <= t ? finishTime : null
+        return { racer, dist, speed, timeS }
+      })
+      live.sort((a, b) => {
+        if (a.timeS !== null && b.timeS !== null) return a.timeS - b.timeS
+        if (a.timeS !== null) return -1
+        if (b.timeS !== null) return 1
+        return b.dist - a.dist
+      })
+      const leader = live[0]
+      const standings: RaceStanding[] = live.map((entry) => ({
+        name: entry.racer.name,
+        isPlayer: entry.racer.isPlayer,
+        colour: entry.racer.colour,
+        lapDist: THREE.MathUtils.euclideanModulo(entry.dist, sim.lapLengthM),
+        lap: Math.min(Math.floor(entry.dist / sim.lapLengthM) + 1, sim.laps),
+        gapS:
+          entry.timeS !== null && leader.timeS !== null
+            ? entry.timeS - leader.timeS
+            : (leader.dist - entry.dist) / Math.max(entry.speed, 0.5),
+        timeS: entry.timeS,
+      }))
       options.onProgress(standings, Math.min(t, playbackEndS))
 
       if (raceTime >= playbackEndS + 1.2) {
@@ -223,6 +267,9 @@ export function runRaceScene(options: RaceSceneOptions): RaceSceneHandle {
   return {
     skip() {
       finish()
+    },
+    setSpeed(multiplier: number) {
+      speedMultiplier = Math.max(1, Math.min(10, multiplier))
     },
     dispose,
   }
