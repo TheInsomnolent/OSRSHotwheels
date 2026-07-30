@@ -1,0 +1,15 @@
+import type { ChatMessage, GameState } from '../engine/types'
+
+/** Shared context handed to every UI panel. */
+export interface GameCtx {
+  state: GameState
+  messages: ChatMessage[]
+  /** Append a line to the chatbox. */
+  log(text: string, kind?: ChatMessage['kind']): void
+  /** Persist the game state to localStorage. */
+  save(): void
+  /** Re-render the active panel and sidebar. */
+  refresh(): void
+  /** While true (e.g. during race playback) the periodic tick skips re-rendering. */
+  uiLocked: boolean
+}
