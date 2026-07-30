@@ -1,4 +1,5 @@
 import type { RaceDef } from '../engine/types'
+import { compileTrack, corner, straight } from '../engine/track'
 
 /**
  * Race definitions. The bootstrap ships the starter event: the Market Dash
@@ -6,23 +7,41 @@ import type { RaceDef } from '../engine/types'
  * Future updates will add faster, larger and more exotic creatures, and
  * string races together into cups.
  */
+
+/**
+ * The Fortis market circuit: a rounded rectangle around the market square
+ * with a double-hairpin complex jutting into the infield on the north side.
+ * Corners are defined by turn angle and radius, so the two 180° turns become
+ * proper hairpins rather than abrupt double-backs.
+ */
+const MARKET_CIRCUIT = compileTrack([
+  straight(20),
+  corner(-90, 11), // turn 1 — south-east sweep
+  straight(38),
+  corner(-90, 11), // turn 2 — north-east sweep
+  straight(30),
+  corner(-180, 6), // turn 3 — fountain hairpin (right)
+  straight(12),
+  corner(180, 6), // turn 4 — stall hairpin (left)
+  straight(22),
+  corner(-90, 11), // turn 5 — north-west sweep
+  straight(14),
+  corner(-90, 11), // turn 6 — south-west sweep
+  straight(20),
+])
+
 export const RACES: RaceDef[] = [
   {
     id: 'market_dash',
     name: 'Fortis Market Dash',
     location: 'Civitas illa Fortis \u2014 Market Square',
     desc:
-      'One lap around the bustling market of Civitas illa Fortis. ' +
-      'The local strays have been racing here for years \u2014 show them what ' +
-      'a well-engineered wheelchair can do.',
-    lengthM: 280,
-    laps: 1,
-    corners: [
-      { at: 40, severity: 0.32 },
-      { at: 95, severity: 0.36 },
-      { at: 180, severity: 0.32 },
-      { at: 235, severity: 0.36 },
-    ],
+      'Three laps around the bustling market of Civitas illa Fortis, ' +
+      'including the infamous fountain hairpins. The local strays have been ' +
+      'racing here for years \u2014 show them what a well-engineered ' +
+      'wheelchair can do.',
+    track: MARKET_CIRCUIT,
+    laps: 3,
     opponents: [
       {
         id: 'scruffy',

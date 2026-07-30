@@ -3,6 +3,11 @@ import { clampLevel } from './xp'
 
 export const SAVE_KEY = 'osrshotwheels.save.v1'
 
+/** Items renamed by content updates; old saves are migrated on load. */
+const LEGACY_ITEMS: Record<string, string> = {
+  sailcloth: 'linen',
+}
+
 export const ALL_SKILLS: SkillId[] = [
   'woodcutting',
   'mining',
@@ -30,6 +35,7 @@ export function defaultState(now: number = Date.now()): GameState {
     selectedPotion: null,
     raceWins: {},
     dogName: 'Buster',
+    pendingBet: null,
   }
 }
 
@@ -58,7 +64,8 @@ export function reviveState(raw: unknown, now: number = Date.now()): GameState {
   if (typeof data.inventory === 'object' && data.inventory !== null) {
     for (const [item, qty] of Object.entries(data.inventory as Record<string, unknown>)) {
       if (typeof qty === 'number' && Number.isFinite(qty) && qty > 0) {
-        state.inventory[item] = Math.floor(qty)
+        const id = LEGACY_ITEMS[item] ?? item
+        state.inventory[id] = (state.inventory[id] ?? 0) + Math.floor(qty)
       }
     }
   }
@@ -73,6 +80,28 @@ export function reviveState(raw: unknown, now: number = Date.now()): GameState {
   if (typeof data.raceWins === 'object' && data.raceWins !== null) {
     for (const [race, wins] of Object.entries(data.raceWins as Record<string, unknown>)) {
       if (typeof wins === 'number' && wins > 0) state.raceWins[race] = Math.floor(wins)
+    }
+  }
+  if (typeof data.pendingBet === 'object' && data.pendingBet !== null) {
+    const bet = data.pendingBet as Record<string, unknown>
+    if (
+      typeof bet.raceId === 'string' &&
+      typeof bet.racerId === 'string' &&
+      typeof bet.racerName === 'string' &&
+      typeof bet.stake === 'number' &&
+      Number.isFinite(bet.stake) &&
+      bet.stake > 0 &&
+      typeof bet.odds === 'number' &&
+      Number.isFinite(bet.odds) &&
+      bet.odds >= 1
+    ) {
+      state.pendingBet = {
+        raceId: bet.raceId,
+        racerId: bet.racerId,
+        racerName: bet.racerName.slice(0, 30),
+        stake: Math.floor(bet.stake),
+        odds: bet.odds,
+      }
     }
   }
   return state

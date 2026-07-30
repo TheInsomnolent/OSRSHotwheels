@@ -2,8 +2,8 @@ import type { RaceDef, RacerStats } from './types'
 import { mulberry32 } from './rng'
 
 export const SIM_DT = 0.1
-const MAX_TIME_S = 180
-const CORNER_WINDOW_M = 18
+const MAX_TIME_S = 240
+const CORNER_APPROACH_M = 18
 const BRAKE_MS2 = 3.5
 
 export interface SimRacer {
@@ -31,6 +31,8 @@ export interface RaceSimOutput {
   racers: SimRacer[]
   dt: number
   totalLengthM: number
+  lapLengthM: number
+  laps: number
 }
 
 /** Target speed limit near a corner, based on severity and the racer's handling. */
@@ -48,7 +50,8 @@ export function simulateRace(
   seed: number,
 ): RaceSimOutput {
   const rng = mulberry32(seed)
-  const totalLength = race.lengthM * race.laps
+  const lapLength = race.track.lengthM
+  const totalLength = lapLength * race.laps
 
   const racers: SimRacer[] = [
     {
@@ -89,13 +92,13 @@ export function simulateRace(
       }
       anyRunning = true
       const stats = racers[i].stats
-      const lapDist = dist[i] % race.lengthM
+      const lapDist = dist[i] % lapLength
 
-      // Is a corner coming up (or are we inside one)?
+      // Slow down on the approach to a corner and all the way around its arc.
       let limit = stats.topSpeed
-      for (const corner of race.corners) {
+      for (const corner of race.track.corners) {
         const gap = corner.at - lapDist
-        if (gap > -6 && gap < CORNER_WINDOW_M) {
+        if (gap > -corner.lengthM && gap < CORNER_APPROACH_M) {
           limit = Math.min(limit, cornerLimit(stats, corner.severity))
         }
       }
@@ -141,5 +144,13 @@ export function simulateRace(
     position: pos + 1,
   }))
 
-  return { placements, distances, racers, dt: SIM_DT, totalLengthM: totalLength }
+  return {
+    placements,
+    distances,
+    racers,
+    dt: SIM_DT,
+    totalLengthM: totalLength,
+    lapLengthM: lapLength,
+    laps: race.laps,
+  }
 }

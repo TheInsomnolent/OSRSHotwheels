@@ -447,6 +447,46 @@ body {
   padding: 8px 22px;
 }
 
+.start-race:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.race-gate-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #8a2f1e;
+  font-weight: bold;
+}
+
+/* ── Trackside bookie ────────────────────────────────────────── */
+.betting-box {
+  margin: 8px 0;
+  padding: 7px 9px;
+  border: 1px dashed var(--stone-dark);
+  border-radius: 3px;
+  background: rgb(0 0 0 / 4%);
+}
+
+.bet-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.bet-stake {
+  width: 90px;
+}
+
+.bet-slip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #402d10;
+  font-weight: bold;
+}
+
 /* ── Race viewport & HUD ─────────────────────────────────────── */
 .race-viewport {
   position: relative;
@@ -471,7 +511,7 @@ body {
   z-index: 2;
 }
 
-.hud-standings {
+.hud-tower {
   position: absolute;
   top: 10px;
   left: 10px;
@@ -479,19 +519,47 @@ body {
   border: 1px solid var(--stone-light);
   border-radius: 3px;
   padding: 6px 10px;
-  min-width: 130px;
+  min-width: 170px;
 }
 
-.standing {
+.tower-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-light);
   font-size: 12px;
   text-shadow: 1px 1px 0 #000;
   padding: 1px 0;
 }
 
-.standing.player {
+.tower-row.player .tower-name {
   color: var(--gold-bright);
   font-weight: bold;
+}
+
+.tower-pos {
+  width: 12px;
+  text-align: right;
+  color: var(--gold-bright);
+  font-weight: bold;
+}
+
+.tower-chip {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgb(0 0 0 / 60%);
+  border-radius: 2px;
+  flex: none;
+}
+
+.tower-name {
+  flex: 1;
+}
+
+.tower-gap {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #d8cdb4;
 }
 
 .hud-clock {
@@ -505,6 +573,31 @@ body {
   color: var(--yellow);
   font-weight: bold;
   text-shadow: 1px 1px 0 #000;
+}
+
+.hud-lap {
+  position: absolute;
+  top: 44px;
+  right: 10px;
+  background: rgb(27 23 18 / 78%);
+  border: 1px solid var(--stone-light);
+  border-radius: 3px;
+  padding: 4px 10px;
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.hud-minimap {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 150px;
+  height: 150px;
+  background: rgb(27 23 18 / 55%);
+  border: 1px solid var(--stone-light);
+  border-radius: 3px;
 }
 
 .hud-countdown {
@@ -523,11 +616,22 @@ body {
   color: #6ee26e;
 }
 
-.hud-skip {
+.hud-controls {
   position: absolute;
   bottom: 12px;
   right: 12px;
+  display: flex;
+  gap: 5px;
   pointer-events: auto;
+}
+
+.hud-speed.active {
+  background: linear-gradient(#8a6a30, #6d5122);
+  color: var(--gold-bright);
+}
+
+.hud-skip {
+  margin-left: 8px;
 }
 
 /* ── Race results overlay ────────────────────────────────────── */
