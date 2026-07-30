@@ -40,12 +40,17 @@ const ctx: GameCtx = {
     })
   },
   reset() {
+    resetting = true
     clearState(localStorage)
     window.location.reload()
   },
 }
 
 let finishingIntro = false
+// Set when the user confirms a reset, so the autosave hooks below (interval,
+// beforeunload, visibilitychange) don't re-write the in-memory state back to
+// localStorage before the reload takes effect and wipes out clearState().
+let resetting = false
 
 let app: ReturnType<typeof createApp> | null = null
 
@@ -115,12 +120,17 @@ window.setInterval(() => {
   }
 }, 1000)
 
-window.setInterval(() => saveState(localStorage, state), 15_000)
+window.setInterval(() => {
+  if (resetting) return
+  saveState(localStorage, state)
+}, 15_000)
 window.addEventListener('beforeunload', () => {
+  if (resetting) return
   processIdle(state, Date.now())
   saveState(localStorage, state)
 })
 document.addEventListener('visibilitychange', () => {
+  if (resetting) return
   if (document.visibilityState === 'hidden') {
     processIdle(state, Date.now())
     saveState(localStorage, state)
