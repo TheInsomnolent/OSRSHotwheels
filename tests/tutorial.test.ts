@@ -4,10 +4,12 @@ import {
   advanceTutorial,
   completeTutorial,
   hasTutorialMaterials,
+  isRaceUnlocked,
   isTabUnlocked,
   isTestDrive,
   tutorialHint,
   tutorialMaterials,
+  unlockedRaceCount,
   visibleRaces,
 } from '../src/engine/tutorial'
 import { RACES, RACES_BY_ID, TEST_DRIVE_RACE } from '../src/data/races'
@@ -135,8 +137,32 @@ describe('tutorial tab and race visibility', () => {
     expect(visibleRaces(state)).toEqual([TEST_DRIVE_RACE])
 
     state.tutorial = 'done'
-    expect(visibleRaces(state)).toEqual(RACES)
     expect(visibleRaces(state)).not.toContain(TEST_DRIVE_RACE)
+  })
+
+  it('unlocks races progressively as each predecessor is won', () => {
+    const state = defaultState(T0)
+    state.tutorial = 'done'
+
+    // Only the market dash is unlocked to begin with, plus the next race is
+    // shown (locked) as a preview.
+    expect(unlockedRaceCount(state)).toBe(1)
+    expect(isRaceUnlocked(state, RACES[0])).toBe(true)
+    expect(isRaceUnlocked(state, RACES[1])).toBe(false)
+    expect(visibleRaces(state)).toEqual(RACES.slice(0, 2))
+
+    // Winning the market dash unlocks the Falador park dash.
+    state.raceWins[RACES[0].id] = 1
+    expect(unlockedRaceCount(state)).toBe(2)
+    expect(isRaceUnlocked(state, RACES[1])).toBe(true)
+    expect(isRaceUnlocked(state, RACES[2])).toBe(false)
+    expect(visibleRaces(state)).toEqual(RACES.slice(0, 3))
+
+    // Winning every race unlocks the whole roster, with nothing left hidden.
+    for (const race of RACES) state.raceWins[race.id] = 1
+    expect(unlockedRaceCount(state)).toBe(RACES.length)
+    expect(visibleRaces(state)).toEqual(RACES)
+    expect(RACES.every((race) => isRaceUnlocked(state, race))).toBe(true)
   })
 })
 

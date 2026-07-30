@@ -73,11 +73,31 @@ export function unlockedTabs(state: GameState, tabs: MainTab[]): MainTab[] {
 }
 
 /**
- * Races on offer: only the Test Drive during that stage of the tutorial, and
- * only the real races once the tutorial is over.
+ * Races unlock progressively: the Fortis Market Dash is always open, and each
+ * further race unlocks once its predecessor on the roster has been won at
+ * least once.
+ */
+export function isRaceUnlocked(state: GameState, race: RaceDef): boolean {
+  const index = RACES.findIndex((r) => r.id === race.id)
+  if (index <= 0) return true
+  return (state.raceWins[RACES[index - 1].id] ?? 0) > 0
+}
+
+/** How many races on the roster are currently unlocked. */
+export function unlockedRaceCount(state: GameState): number {
+  let count = 1
+  while (count < RACES.length && (state.raceWins[RACES[count - 1].id] ?? 0) > 0) count++
+  return count
+}
+
+/**
+ * Races on offer: only the Test Drive during that stage of the tutorial;
+ * once the tutorial is over, every unlocked race plus the next one up
+ * (shown locked, as a preview of what's coming).
  */
 export function visibleRaces(state: GameState): RaceDef[] {
-  return state.tutorial === 'test_drive' ? [TEST_DRIVE_RACE] : RACES
+  if (state.tutorial === 'test_drive') return [TEST_DRIVE_RACE]
+  return RACES.slice(0, Math.min(unlockedRaceCount(state) + 1, RACES.length))
 }
 
 /** Test drives are a shakedown lap: no prizes, no bookie, no win counter. */

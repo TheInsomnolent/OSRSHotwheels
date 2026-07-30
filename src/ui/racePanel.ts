@@ -1,7 +1,8 @@
 import type { GameCtx } from './context'
 import type { OpponentDef, RaceDef } from '../engine/types'
-import { completeTutorial, isTestDrive, visibleRaces } from '../engine/tutorial'
+import { completeTutorial, isRaceUnlocked, isTestDrive, visibleRaces } from '../engine/tutorial'
 import { ITEMS_BY_ID, itemName } from '../data/items'
+import { RACES } from '../data/races'
 import { computeStats, missingRaceParts } from '../engine/workshop'
 import { addItem, itemCount, removeItem } from '../engine/state'
 import { simulateRace, type RaceSimOutput } from '../engine/raceSim'
@@ -128,7 +129,8 @@ function raceCard(
   container: HTMLElement,
   setCleanup: (fn: () => void) => void,
 ): HTMLElement {
-  const card = el('div', 'race-card')
+  const locked = !isTestDrive(race) && !isRaceUnlocked(ctx.state, race)
+  const card = el('div', `race-card${locked ? ' locked' : ''}`)
   card.append(el('h3', 'group-title', `🏁 ${race.name}`))
   card.append(el('div', 'race-location', race.location))
   card.append(el('p', 'card-desc', race.desc))
@@ -168,8 +170,8 @@ function raceCard(
     ),
   )
 
-  // No bookie on a shakedown lap: there is nobody to bet against.
-  if (!isTestDrive(race)) card.append(bettingBox(race, ctx))
+  // No bookie on a shakedown lap, or on a race you haven't unlocked yet.
+  if (!isTestDrive(race) && !locked) card.append(bettingBox(race, ctx))
 
   const missing = missingRaceParts(ctx.state)
   const start = button(
@@ -177,7 +179,19 @@ function raceCard(
     'osrs-button start-race',
     () => startRace(race, ctx, container, setCleanup),
   )
-  if (missing.length > 0) {
+  if (locked) {
+    start.disabled = true
+    card.append(start)
+    const index = RACES.findIndex((r) => r.id === race.id)
+    const previous = RACES[index - 1]
+    card.append(
+      el(
+        'div',
+        'race-gate-hint',
+        `🔒 Win the ${previous.name} to unlock this race.`,
+      ),
+    )
+  } else if (missing.length > 0) {
     start.disabled = true
     card.append(start)
     card.append(
