@@ -8,6 +8,11 @@ Play it here: **<https://theinsomnolent.github.io/OSRSHotwheels/>**
 
 ## The game
 
+- **Opening cinematic** – the first time you play, an OSRS-style *Miniquest:
+  Hotwheels* cutscene tells the story of the child, the buffalo stampede and
+  the dog who needed wheels. Enter your RSN on the title screen first: your
+  hiscores are fetched in the background while the story plays. (Click or press
+  space to advance, escape or *Skip cutscene* to jump straight in.)
 - **Look up your RSN** – enter your Old School RuneScape name and the game
   fetches your real skill levels from the official hiscores. (No account? Click
   any skill in the sidebar to set its level manually.)
@@ -55,9 +60,10 @@ npm run preview   # serve the production build locally
 
 ```
 src/
-  engine/    game logic: xp curves, idle processing, workshop, race sim, hiscores
-  data/      content: skills, items, activities, upgrade tiers, race definitions
-  ui/        DOM components: chatbox, sidebar, panels for gather/workshop/race
+  engine/    game logic: xp curves, idle processing, workshop, race sim,
+             hiscores, cutscene playback
+  data/      content: skills, items, activities, upgrades, races, intro script
+  ui/        DOM components: chatbox, sidebar, panels, title screen + cutscene
   three/     3D: dog + wheelchair rig, market scene, race playback
 tests/       vitest suites for the engine
 ```
@@ -71,7 +77,8 @@ must be set to **GitHub Actions**.
 
 ### Save data
 
-Game state (skills, inventory, upgrades, dog name, wins) is stored in
+Game state (skills, inventory, upgrades, dog name, wins, whether the intro
+has been watched) is stored in
 `localStorage` under `osrshotwheels.save.v1`. Clearing site data resets the
 game.
 

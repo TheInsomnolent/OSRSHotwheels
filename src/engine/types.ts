@@ -136,6 +136,8 @@ export interface GameState {
   raceWins: Record<string, number>
   /** Player's dog's name. */
   dogName: string
+  /** True once the opening "Hotwheels" miniquest cinematic has been watched. */
+  introSeen: boolean
   /** Outstanding bookie bet, settled when its race is run. */
   pendingBet: PendingBet | null
 }

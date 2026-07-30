@@ -1,7 +1,6 @@
 import type { GameCtx } from './context'
-import type { SkillId } from '../engine/types'
-import { SKILLS } from '../data/skills'
-import { fetchHiscores, PlayerNotRankedError, validRsn } from '../engine/hiscores'
+import { fetchHiscores, validRsn } from '../engine/hiscores'
+import { applyHiscoreLevels, hiscoreErrorMessage } from './hiscoreSync'
 import { renderSidebar } from './sidebar'
 import { renderActivitiesPanel } from './activitiesPanel'
 import { renderWorkshopPanel } from './workshopPanel'
@@ -111,32 +110,15 @@ function rsnForm(ctx: GameCtx): HTMLElement {
     submit.textContent = 'Looking up…'
     fetchHiscores(rsn)
       .then((levels) => {
-        ctx.state.rsn = rsn
-        const found: string[] = []
-        for (const skill of SKILLS) {
-          const level = levels[skill.id as SkillId]
-          if (level !== undefined) {
-            ctx.state.skills[skill.id] = level
-            found.push(`${skill.name} ${level}`)
-          }
-        }
+        const found = applyHiscoreLevels(ctx, rsn, levels)
         ctx.log(`Welcome, ${rsn}! Hiscores loaded: ${found.join(', ') || 'no skills found'}.`, 'system')
         if (levels.sailing === undefined) {
           ctx.log('Sailing isn\u2019t on the hiscores yet \u2014 set it by clicking it in the Skills tab.', 'system')
         }
-        ctx.save()
         ctx.refresh()
       })
       .catch((error: unknown) => {
-        if (error instanceof PlayerNotRankedError) {
-          ctx.log(`${error.message}. You can set levels by hand in the Skills tab.`, 'error')
-        } else {
-          ctx.log(
-            'Couldn\u2019t reach the hiscores (the API blocks browsers sometimes). ' +
-              'Set your levels by clicking skills in the Skills tab.',
-            'error',
-          )
-        }
+        ctx.log(hiscoreErrorMessage(error), 'error')
       })
       .finally(() => {
         submit.disabled = false
