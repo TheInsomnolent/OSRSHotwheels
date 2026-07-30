@@ -29,6 +29,7 @@ export function createApp(root: HTMLElement, ctx: GameCtx): AppHandle {
     el('div', 'tagline', 'Build a racing wheelchair for your best friend'),
   )
   header.append(rsnForm(ctx))
+  header.append(resetButton(ctx))
   root.append(header)
 
   // ── Main area: tabbed panel + sidebar ──────────────────────────
@@ -87,6 +88,16 @@ export function createApp(root: HTMLElement, ctx: GameCtx): AppHandle {
     },
     chat,
   }
+}
+
+function resetButton(ctx: GameCtx): HTMLElement {
+  return button('↺ Reset progress', 'osrs-button small danger', () => {
+    const confirmed = window.confirm(
+      'Reset all progress? This will erase your skills, inventory, upgrades and race wins, and cannot be undone.',
+    )
+    if (!confirmed) return
+    ctx.reset()
+  })
 }
 
 function rsnForm(ctx: GameCtx): HTMLElement {

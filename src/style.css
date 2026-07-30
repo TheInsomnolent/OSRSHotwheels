@@ -152,6 +152,15 @@ body {
   font-size: 11px;
 }
 
+.osrs-button.danger {
+  background: linear-gradient(#6b3d33, #4a2a24 60%, #3c211c);
+  color: var(--parchment);
+}
+
+.osrs-button.danger:hover:not(:disabled) {
+  color: #ff8a80;
+}
+
 /* ── Main layout ─────────────────────────────────────────────── */
 .app-main {
   display: flex;

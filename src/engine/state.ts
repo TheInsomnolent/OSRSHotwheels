@@ -139,6 +139,15 @@ export function saveState(storage: Pick<Storage, 'setItem'>, state: GameState): 
   }
 }
 
+/** Wipe the saved game so the next load starts from the very beginning. */
+export function clearState(storage: Pick<Storage, 'removeItem'>): void {
+  try {
+    storage.removeItem(SAVE_KEY)
+  } catch {
+    // Storage may be unavailable (private browsing, quota); nothing more to do.
+  }
+}
+
 /** Add items to the inventory. */
 export function addItem(state: GameState, item: string, qty: number): void {
   if (qty <= 0) return
