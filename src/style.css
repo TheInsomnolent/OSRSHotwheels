@@ -719,26 +719,26 @@ body {
   overflow: hidden;
 }
 
-.side-tabs {
+.side-pane {
+  flex: 1 1 50%;
+  min-height: 0;
   display: flex;
-  background: #3c3428;
+  flex-direction: column;
+}
+
+.side-pane-header {
+  background: linear-gradient(#8c2b20, #6d1f16);
+  color: #f1e4c9;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 5px 8px;
   border-bottom: 2px solid var(--stone-dark);
 }
 
-.side-tab {
-  flex: 1;
-  background: none;
-  border: none;
-  border-right: 1px solid var(--stone-dark);
-  font-size: 18px;
-  padding: 7px 0;
-  cursor: pointer;
-  filter: grayscale(0.4);
-}
-
-.side-tab.active {
-  background: linear-gradient(#8c2b20, #6d1f16);
-  filter: none;
+.side-divider {
+  height: 3px;
+  flex-shrink: 0;
+  background: var(--stone-dark);
 }
 
 .side-body {

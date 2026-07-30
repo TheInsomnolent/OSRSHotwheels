@@ -5,34 +5,23 @@ import { itemName } from '../data/items'
 import { clampLevel } from '../engine/xp'
 import { el, formatQty, itemIcon, skillIcon } from './format'
 
-type SideTab = 'skills' | 'inventory'
-let activeTab: SideTab = 'skills'
-
-/** OSRS-style right-hand interface: stats tab and a 4-wide inventory grid. */
+/** OSRS-style right-hand interface: skills and inventory shown stacked, split evenly. */
 export function renderSidebar(container: HTMLElement, ctx: GameCtx): void {
   container.replaceChildren()
 
-  const tabs = el('div', 'side-tabs')
-  const tabDefs: { id: SideTab; icon: string; title: string }[] = [
-    { id: 'skills', icon: '📊', title: 'Skills' },
-    { id: 'inventory', icon: '🎒', title: 'Inventory' },
-  ]
-  for (const tab of tabDefs) {
-    const b = el('button', `side-tab${activeTab === tab.id ? ' active' : ''}`, tab.icon)
-    b.type = 'button'
-    b.title = tab.title
-    b.addEventListener('click', () => {
-      activeTab = tab.id
-      renderSidebar(container, ctx)
-    })
-    tabs.append(b)
-  }
-  container.append(tabs)
+  const skillsPane = el('div', 'side-pane')
+  const skillsHeader = el('div', 'side-pane-header', '📊 Skills')
+  const skillsBody = el('div', 'side-body')
+  renderSkills(skillsBody, ctx)
+  skillsPane.append(skillsHeader, skillsBody)
 
-  const body = el('div', 'side-body')
-  if (activeTab === 'skills') renderSkills(body, ctx)
-  else renderInventory(body, ctx)
-  container.append(body)
+  const inventoryPane = el('div', 'side-pane')
+  const inventoryHeader = el('div', 'side-pane-header', '🎒 Inventory')
+  const inventoryBody = el('div', 'side-body')
+  renderInventory(inventoryBody, ctx)
+  inventoryPane.append(inventoryHeader, inventoryBody)
+
+  container.append(skillsPane, el('div', 'side-divider'), inventoryPane)
 }
 
 function renderSkills(body: HTMLElement, ctx: GameCtx): void {
