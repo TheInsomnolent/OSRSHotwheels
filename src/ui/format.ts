@@ -1,7 +1,8 @@
 /** Small DOM and formatting helpers shared by the UI panels. */
 
-import { itemIconUrl } from '../data/icons'
+import { itemIconUrl, skillIconUrl } from '../data/icons'
 import { ITEMS_BY_ID, itemName } from '../data/items'
+import { SKILLS } from '../data/skills'
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -25,6 +26,20 @@ export function itemIcon(id: string): HTMLElement {
     return img
   }
   return el('span', 'item-icon item-icon-emoji', ITEMS_BY_ID[id]?.icon ?? '❔')
+}
+
+/** A skill's OSRS stats-tab sprite, falling back to its emoji glyph. */
+export function skillIcon(id: string): HTMLElement {
+  const url = skillIconUrl(id)
+  if (url) {
+    const img = el('img', 'skill-icon')
+    img.src = url
+    img.alt = ''
+    img.draggable = false
+    return img
+  }
+  const skill = SKILLS.find((s) => s.id === id)
+  return el('span', 'skill-icon skill-icon-emoji', skill?.icon ?? '❔')
 }
 
 /** A compact "[icon] 3× Iron bar" chip used in cost and input/output lines. */
