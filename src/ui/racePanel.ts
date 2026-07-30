@@ -59,8 +59,9 @@ function renderLobby(
     el(
       'p',
       'panel-blurb',
-      'More races and championship cups are coming: bears, unicorns, terrorbirds \u2014 ' +
-        'even, whisper it, a penance queen. Beat the market dogs first.',
+      'Championship cups binding these races together are coming next. For ' +
+        'now, work your way up from the market dogs to the Penance Queen ' +
+        'herself.',
     ),
   )
 }
