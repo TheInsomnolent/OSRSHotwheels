@@ -12,4 +12,9 @@ export interface GameCtx {
   refresh(): void
   /** While true (e.g. during race playback) the periodic tick skips re-rendering. */
   uiLocked: boolean
+  /**
+   * Play the closing half of the opening cinematic, once the guided tutorial's
+   * test drive is done. A no-op if the intro has already been seen.
+   */
+  finishIntro(): void
 }

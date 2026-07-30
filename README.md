@@ -13,6 +13,13 @@ Play it here: **<https://theinsomnolent.github.io/OSRSHotwheels/>**
   the dog who needed wheels. Enter your RSN on the title screen first: your
   hiscores are fetched in the background while the story plays. (Click or press
   space to advance, escape or *Skip cutscene* to jump straight in.)
+- **Guided tutorial** – the cinematic breaks off at the smith and hands you the
+  game one step at a time: gather the materials for the entry-level frame,
+  axles, wheels and harness (the Workshop and Race tabs stay hidden), build
+  them in the workshop (the Race tab stays hidden), then take the chair out on
+  the *Test Drive* — a solo lap of the market circuit with no rivals, no prizes
+  and no bookie. Finish it and the cinematic wraps up, the test drive
+  disappears and the full card of races opens.
 - **Look up your RSN** – enter your Old School RuneScape name and the game
   fetches your real skill levels from the official hiscores. (No account? Click
   any skill in the sidebar to set its level manually.)
@@ -77,8 +84,8 @@ must be set to **GitHub Actions**.
 
 ### Save data
 
-Game state (skills, inventory, upgrades, dog name, wins, whether the intro
-has been watched) is stored in
+Game state (skills, inventory, upgrades, dog name, wins, tutorial progress,
+whether the intro has been watched) is stored in
 `localStorage` under `osrshotwheels.save.v1`. Clearing site data resets the
 game.
 

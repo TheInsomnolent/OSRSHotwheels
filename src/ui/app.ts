@@ -7,8 +7,8 @@ import { renderWorkshopPanel } from './workshopPanel'
 import { renderRacePanel } from './racePanel'
 import { createChatbox } from './chatbox'
 import { button, el } from './format'
-
-type MainTab = 'gather' | 'workshop' | 'race'
+import type { MainTab } from '../engine/tutorial'
+import { advanceTutorial, isTabUnlocked, tutorialHint } from '../engine/tutorial'
 
 export interface AppHandle {
   refresh(): void
@@ -35,8 +35,9 @@ export function createApp(root: HTMLElement, ctx: GameCtx): AppHandle {
   const main = el('main', 'app-main')
   const panelWrap = el('div', 'panel-wrap')
   const tabBar = el('nav', 'tab-bar')
+  const hint = el('div', 'tutorial-hint')
   const panel = el('section', 'main-panel')
-  panelWrap.append(tabBar, panel)
+  panelWrap.append(tabBar, hint, panel)
   const sidebar = el('aside', 'app-sidebar')
   main.append(panelWrap, sidebar)
   root.append(main)
@@ -54,8 +55,15 @@ export function createApp(root: HTMLElement, ctx: GameCtx): AppHandle {
   ]
 
   function renderTabBar(): void {
+    // The tutorial reveals the workshop and race tabs one stage at a time.
+    const unlocked = tabs.filter((tab) => isTabUnlocked(ctx.state, tab.id))
+    if (!unlocked.some((tab) => tab.id === activeTab)) {
+      panelCleanup()
+      panelCleanup = () => {}
+      activeTab = unlocked[0].id
+    }
     tabBar.replaceChildren(
-      ...tabs.map((tab) => {
+      ...unlocked.map((tab) => {
         const b = button(tab.label, `main-tab${tab.id === activeTab ? ' active' : ''}`, () => {
           if (tab.id === activeTab) return
           panelCleanup()
@@ -69,19 +77,47 @@ export function createApp(root: HTMLElement, ctx: GameCtx): AppHandle {
     )
   }
 
+  function renderHint(): void {
+    const text = tutorialHint(ctx.state)
+    hint.textContent = text ?? ''
+    hint.classList.toggle('active', text !== null)
+  }
+
   function renderPanel(): void {
     if (activeTab === 'gather') renderActivitiesPanel(panel, ctx)
     else if (activeTab === 'workshop') renderWorkshopPanel(panel, ctx)
     else panelCleanup = renderRacePanel(panel, ctx)
   }
 
+  // A save that already meets the current goal (or an old one) starts further on.
+  advanceTutorial(ctx.state)
+
   renderTabBar()
+  renderHint()
   renderPanel()
   renderSidebar(sidebar, ctx)
 
   return {
     refresh() {
       if (ctx.uiLocked) return
+      // Reaching a tutorial goal can unlock a tab, so check before rendering.
+      const stage = advanceTutorial(ctx.state)
+      if (stage) {
+        ctx.save()
+        if (stage === 'workshop') {
+          ctx.log(
+            'You have everything the smith asked for \u2014 the Workshop is open to you now.',
+            'system',
+          )
+        } else if (stage === 'test_drive') {
+          ctx.log(
+            'The wheelchair is finished! Take it out on the Test Drive in the Race tab.',
+            'system',
+          )
+        }
+        renderTabBar()
+      }
+      renderHint()
       renderPanel()
       renderSidebar(sidebar, ctx)
     },

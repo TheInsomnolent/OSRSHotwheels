@@ -4,7 +4,7 @@ import { loadState, saveState } from './engine/state'
 import { processIdle, type IdleReport } from './engine/idle'
 import { itemName } from './data/items'
 import { createApp } from './ui/app'
-import { runIntro } from './ui/intro'
+import { runIntro, runIntroFinale } from './ui/intro'
 import type { GameCtx } from './ui/context'
 import { formatDuration } from './ui/format'
 
@@ -27,7 +27,21 @@ const ctx: GameCtx = {
   refresh() {
     app?.refresh()
   },
+  finishIntro() {
+    if (state.introSeen || finishingIntro) return
+    finishingIntro = true
+    void runIntroFinale(root, ctx).then(() => {
+      finishingIntro = false
+      ctx.log(
+        `Miniquest complete! ${state.dogName} is race-ready \u2014 the full card of races is open.`,
+        'reward',
+      )
+      ctx.refresh()
+    })
+  },
 }
+
+let finishingIntro = false
 
 let app: ReturnType<typeof createApp> | null = null
 
@@ -61,8 +75,10 @@ function logWelcome(): void {
 }
 
 async function boot(): Promise<void> {
-  // First visit: title screen (RSN entry) then the opening miniquest cinematic.
-  if (!state.introSeen) {
+  // First visit: title screen (RSN entry) then the opening half of the
+  // miniquest cinematic. A reload part-way through the tutorial goes straight
+  // back to the game rather than replaying the story.
+  if (!state.introSeen && state.tutorial === 'intro') {
     root.classList.add('intro-mode')
     await runIntro(root, ctx)
     root.classList.remove('intro-mode')
@@ -71,6 +87,8 @@ async function boot(): Promise<void> {
   app = createApp(root, ctx)
   app.chat.render(messages)
   saveState(localStorage, state)
+  // Reloaded after the test drive but before the finale played: pick it up.
+  if (!state.introSeen && state.tutorial === 'done') ctx.finishIntro()
 }
 
 void boot()

@@ -1,6 +1,6 @@
 import type { GameCtx } from './context'
 import type { OpponentDef, RaceDef } from '../engine/types'
-import { RACES } from '../data/races'
+import { completeTutorial, isTestDrive, visibleRaces } from '../engine/tutorial'
 import { ITEMS_BY_ID, itemName } from '../data/items'
 import { computeStats, missingRaceParts } from '../engine/workshop'
 import { addItem, itemCount, removeItem } from '../engine/state'
@@ -53,15 +53,18 @@ function renderLobby(
   dogBox.append(potionPicker(ctx))
   container.append(dogBox)
 
-  for (const race of RACES) container.append(raceCard(race, ctx, container, setCleanup))
+  const races = visibleRaces(ctx.state)
+  for (const race of races) container.append(raceCard(race, ctx, container, setCleanup))
 
   container.append(
     el(
       'p',
       'panel-blurb',
-      'Championship cups binding these races together are coming next. For ' +
-        'now, work your way up from the market dogs to the Penance Queen ' +
-        'herself.',
+      races.some(isTestDrive)
+        ? 'The real race meetings open up once you have shaken the new chair down.'
+        : 'Championship cups binding these races together are coming next. For ' +
+          'now, work your way up from the market dogs to the Penance Queen ' +
+          'herself.',
     ),
   )
 }
@@ -135,12 +138,19 @@ function raceCard(
     el(
       'div',
       'io-out',
-      `${Math.round(race.track.lengthM)}m lap · ${race.laps} laps · Wins: ${wins}`,
+      `${Math.round(race.track.lengthM)}m lap · ${race.laps} lap${race.laps === 1 ? '' : 's'}` +
+        (isTestDrive(race) ? '' : ` · Wins: ${wins}`),
     ),
   )
 
   const lineup = el('div', 'race-lineup')
-  lineup.append(el('div', 'lineup-title', 'The competition:'))
+  lineup.append(
+    el(
+      'div',
+      'lineup-title',
+      race.opponents.length > 0 ? 'The competition:' : 'No rivals — the track is all yours.',
+    ),
+  )
   for (const opponent of race.opponents) lineup.append(opponentRow(opponent))
   card.append(lineup)
 
@@ -149,18 +159,23 @@ function raceCard(
     el(
       'div',
       'io-out',
-      `1st prize: ${first.coins} coins` +
-        (first.items?.length
-          ? `, ${first.items.map((i) => `${i.qty}× ${itemName(i.item)}`).join(', ')}`
-          : ''),
+      first
+        ? `1st prize: ${first.coins} coins` +
+          (first.items?.length
+            ? `, ${first.items.map((i) => `${i.qty}× ${itemName(i.item)}`).join(', ')}`
+            : '')
+        : 'No prize money — this one is purely for the practice.',
     ),
   )
 
-  card.append(bettingBox(race, ctx))
+  // No bookie on a shakedown lap: there is nobody to bet against.
+  if (!isTestDrive(race)) card.append(bettingBox(race, ctx))
 
   const missing = missingRaceParts(ctx.state)
-  const start = button('Start race!', 'osrs-button start-race', () =>
-    startRace(race, ctx, container, setCleanup),
+  const start = button(
+    isTestDrive(race) ? 'Take it for a spin!' : 'Start race!',
+    'osrs-button start-race',
+    () => startRace(race, ctx, container, setCleanup),
   )
   if (missing.length > 0) {
     start.disabled = true
@@ -303,44 +318,56 @@ function startRace(
     finalized = true
 
     const player = sim.placements.find((p) => p.isPlayer)!
-    const reward = race.rewards[Math.min(player.position - 1, race.rewards.length - 1)]
-    addItem(ctx.state, 'coins', reward.coins)
-    for (const item of reward.items ?? []) addItem(ctx.state, item.item, item.qty)
-    if (player.position === 1) {
-      ctx.state.raceWins[race.id] = (ctx.state.raceWins[race.id] ?? 0) + 1
-      ctx.log(`${ctx.state.dogName} wins the ${race.name}! What a good dog!`, 'reward')
+    if (isTestDrive(race)) {
+      // A shakedown lap: no placement, no prize money, no bookie. Finishing it
+      // ends the tutorial and the opening cinematic picks back up.
+      ctx.log(
+        `${ctx.state.dogName} rattles around the empty market square in ` +
+          `${formatRaceTime(player.timeS)} and skids to a stop, grinning.`,
+        'game',
+      )
+      completeTutorial(ctx.state)
+      ctx.save()
     } else {
-      ctx.log(`${ctx.state.dogName} finishes ${ordinal(player.position)} in the ${race.name}.`, 'game')
-    }
-    const rewardText =
-      `You receive ${reward.coins} coins` +
-      (reward.items?.length
-        ? ` and ${reward.items.map((i) => `${i.qty}× ${itemName(i.item)}`).join(', ')}`
-        : '')
-    ctx.log(`${rewardText}.`, 'reward')
-
-    const settled = settleBet(ctx.state, race.id, sim.placements[0].racerId)
-    if (settled) {
-      if (settled.payout > 0) {
-        ctx.log(
-          `The bookie grudgingly counts out ${settled.payout} coins on ${settled.bet.racerName}.`,
-          'reward',
-        )
+      const reward = race.rewards[Math.min(player.position - 1, race.rewards.length - 1)]
+      addItem(ctx.state, 'coins', reward.coins)
+      for (const item of reward.items ?? []) addItem(ctx.state, item.item, item.qty)
+      if (player.position === 1) {
+        ctx.state.raceWins[race.id] = (ctx.state.raceWins[race.id] ?? 0) + 1
+        ctx.log(`${ctx.state.dogName} wins the ${race.name}! What a good dog!`, 'reward')
       } else {
-        ctx.log(
-          `Your ${settled.bet.stake} coin stake on ${settled.bet.racerName} vanishes into the bookie's coat.`,
-          'game',
-        )
+        ctx.log(`${ctx.state.dogName} finishes ${ordinal(player.position)} in the ${race.name}.`, 'game')
       }
+      const rewardText =
+        `You receive ${reward.coins} coins` +
+        (reward.items?.length
+          ? ` and ${reward.items.map((i) => `${i.qty}× ${itemName(i.item)}`).join(', ')}`
+          : '')
+      ctx.log(`${rewardText}.`, 'reward')
+
+      const settled = settleBet(ctx.state, race.id, sim.placements[0].racerId)
+      if (settled) {
+        if (settled.payout > 0) {
+          ctx.log(
+            `The bookie grudgingly counts out ${settled.payout} coins on ${settled.bet.racerName}.`,
+            'reward',
+          )
+        } else {
+          ctx.log(
+            `Your ${settled.bet.stake} coin stake on ${settled.bet.racerName} vanishes into the bookie's coat.`,
+            'game',
+          )
+        }
+      }
+      ctx.save()
     }
-    ctx.save()
 
     if (showOverlay) {
       // Keep the UI locked so the periodic refresh can't wipe the results
       // overlay; leaveRace unlocks when the player continues or tabs away.
       controls.remove()
       countdownBox.textContent = ''
-      viewport.append(resultsOverlay(sim, ctx, container, setCleanup, leaveRace))
+      viewport.append(resultsOverlay(race, sim, ctx, container, setCleanup, leaveRace))
     } else {
       ctx.uiLocked = false
     }
@@ -369,10 +396,16 @@ function startRace(
 
   // Settle the race (rewards, unlock, GL teardown). Runs when the player
   // clicks Continue, or via cleanup if they switch tabs mid-race.
+  let introResumed = false
   const leaveRace = () => {
     finalize(false)
     ctx.uiLocked = false
     handle.dispose()
+    // The test drive is the last beat of the tutorial: resume the cinematic.
+    if (isTestDrive(race) && !ctx.state.introSeen && !introResumed) {
+      introResumed = true
+      ctx.finishIntro()
+    }
   }
   setCleanup(leaveRace)
 }
@@ -460,6 +493,7 @@ function createMinimap(track: CompiledTrack): {
 }
 
 function resultsOverlay(
+  race: RaceDef,
   sim: RaceSimOutput,
   ctx: GameCtx,
   container: HTMLElement,
@@ -473,7 +507,11 @@ function resultsOverlay(
     el(
       'h3',
       'panel-title',
-      player.position === 1 ? '🏆 Victory!' : `${ordinal(player.position)} place`,
+      isTestDrive(race)
+        ? '🐕 Shakedown complete'
+        : player.position === 1
+          ? '🏆 Victory!'
+          : `${ordinal(player.position)} place`,
     ),
   )
   const table = el('div', 'results-table')

@@ -1,8 +1,13 @@
 import type { CutsceneScript } from '../engine/cutscene'
 
 /**
- * "Hotwheels" — the opening miniquest cinematic, played once before the game
- * starts. `{player}` and `{dog}` are substituted at runtime.
+ * "Hotwheels" — the opening miniquest cinematic. `{player}` and `{dog}` are
+ * substituted at runtime.
+ *
+ * The story is split in two: `INTRO_OPENING` plays before the game starts and
+ * ends at the smith's parts list, at which point the player is handed control
+ * for the guided tutorial (gather, build, test drive). `INTRO_FINALE` picks the
+ * story back up once the test drive is done.
  */
 
 const KID = { speaker: 'Crying Child', chathead: '😭', colour: '#8c5a2b' }
@@ -12,7 +17,7 @@ const GUARD = { speaker: 'Fortis Guard', chathead: '💂', colour: '#5c4a7a' }
 const MERCHANT = { speaker: 'Jim the Merchant', chathead: '🧑‍🌾', colour: '#8a6d2f' }
 const SMITH = { speaker: 'Fortis Smith', chathead: '🧔', colour: '#7a3b23' }
 
-export const INTRO_SCRIPT: CutsceneScript = [
+export const INTRO_OPENING: CutsceneScript = [
   {
     kind: 'narration',
     text:
@@ -76,6 +81,16 @@ export const INTRO_SCRIPT: CutsceneScript = [
       'for struts, leather vambraces for the straps \u2014 and a fistful of nails to hold it all together.',
   },
   {
+    kind: 'dialogue',
+    ...SMITH,
+    text:
+      'Gather the materials and meet me in the workshop, {player}. Once the chair is built, ' +
+      'take {dog} out for a test drive before you go showing him off.',
+  },
+]
+
+export const INTRO_FINALE: CutsceneScript = [
+  {
     kind: 'narration',
     text: 'You build a doggy wheelchair and fit it to {dog}. He wobbles once... then bolts.',
   },
@@ -100,3 +115,6 @@ export const INTRO_SCRIPT: CutsceneScript = [
       'Time to build him a proper racing chair, {player}.',
   },
 ]
+
+/** The whole miniquest, opening and finale, in story order. */
+export const INTRO_SCRIPT: CutsceneScript = [...INTRO_OPENING, ...INTRO_FINALE]

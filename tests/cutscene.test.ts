@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createCutscene, resolveScript, resolveText } from '../src/engine/cutscene'
 import type { CutsceneScript } from '../src/engine/cutscene'
-import { INTRO_SCRIPT } from '../src/data/introScript'
+import { INTRO_FINALE, INTRO_OPENING, INTRO_SCRIPT } from '../src/data/introScript'
 
 const VARS = { player: 'Zezima', dog: 'Scruffius' }
 
@@ -87,5 +87,19 @@ describe('the intro script', () => {
       .join('\n')
     expect(all).toContain('Zezima')
     expect(all).toContain('Scruffius')
+  })
+})
+
+describe('the intro split around the tutorial', () => {
+  it('is the opening followed by the finale', () => {
+    expect(INTRO_SCRIPT).toEqual([...INTRO_OPENING, ...INTRO_FINALE])
+    expect(INTRO_OPENING.length).toBeGreaterThan(0)
+    expect(INTRO_FINALE.length).toBeGreaterThan(0)
+  })
+
+  it('breaks off at the smith and picks back up at the finished wheelchair', () => {
+    expect(INTRO_OPENING.at(-1)?.speaker).toBe('Fortis Smith')
+    expect(INTRO_FINALE[0]?.text).toContain('You build a doggy wheelchair')
+    expect(INTRO_FINALE.at(-1)?.kind).toBe('quest')
   })
 })
